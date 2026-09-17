@@ -1,109 +1,118 @@
 <?php
-// =========================================================================
-// index.php - Enrutador Central (Front Controller) - INCA NOTES
-// =========================================================================
-
-// 1. Configuración de seguridad y manejo de sesiones
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 2. Importación de los Controladores del Sistema
-require_once 'controllers/UsuarioController.php';
-require_once 'controllers/AcademicoController.php';
+require_once __DIR__ . '/config/Conexion.php';
+require_once __DIR__ . '/controllers/AcademicoController.php';
 
-// 3. Instanciación de los objetos controladores
-$usuarioController = new UsuarioController();
-$academicoController = new AcademicoController();
+$controller = new AcademicoController();
 
-// 4. Capturar la acción solicitada (por defecto carga el dashboard o login)
-$action = isset($_GET['action']) ? $_GET['action'] : 'dashboard';
+$action = $_GET['action'] ?? '';
+if (empty($action) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? 'login';
+}
 
-// 5. Sistema de Enrutamiento (Matriz de Decisiones del MVP)
+if (empty($action)) {
+    $action = isset($_SESSION['usuario_id']) ? 'dashboard' : 'login';
+}
+
 switch ($action) {
-    
-    // ==========================================
-    // SECCIÓN 1: AUTENTICACIÓN Y ACCESOS
-    // ==========================================
     case 'login':
-        $usuarioController->iniciarSesion();
-        break;
-
-    case 'logout':
-        $usuarioController->cerrarSesion();
-        break;
-
-    case 'registro':
-        $usuarioController->registrarUsuario();
+        $controller->login();
         break;
 
     case 'dashboard':
-        if (!isset($_SESSION['rol'])) {
-            header("Location: index.php?action=login");
-            exit();
-        }
-        
-        // Redirección inteligente según el rol del usuario logueado
-        if ($_SESSION['rol'] === 'estudiante') {
-            // El rol estudiante carga directamente su historial académico (boleta)
-            $academicoController->verBoletaNotas();
-        } else if ($_SESSION['rol'] === 'docente' || $_SESSION['rol'] === 'administrador') {
-            // NUEVO NUEVO: Envía a Docentes y Administradores al Menú Principal de Tarjetas (views/dashboard.php)
-            require_once 'views/dashboard.php';
-        } else {
-            header("Location: index.php?action=login");
-        }
+        $controller->dashboard();
         break;
 
-    // ==========================================
-    // SECCIÓN 2: CONTROL ACADÉMICO Y NOTAS
-    // ==========================================
-    case 'notes':
-    case 'notas':
-        // Carga la interfaz de control de matrícula o personal docente según rol
-        $academicoController->administrarNotas();
+    case 'gestion_notas':
+        $controller->gestionNotas();
         break;
 
-    case 'guardar_notes': 
-    case 'guardar_notas':
-        // Procesa las calificaciones introducidas por el docente (35%, 35%, 30%)
-        $academicoController->procesarNotas();
+    case 'gestion_docentes':
+    case 'gestion_personal_docente':
+        $controller->gestionDocentes();
         break;
 
-    // ==========================================
-    // SECCIÓN 3: GESTIÓN DE MATRÍCULA Y PERSONAL (CRUD)
-    // ==========================================
-    case 'registrar_estudiante':
-        // Registro inteligente de alumnos (inmune a duplicados)
-        $academicoController->registrarEstudianteManual();
+    case 'actualizar_docente_gestion':
+        $controller->actualizarDocenteGestion();
         break;
 
-    case 'modificar_estudiante':
-        // Procesa la edición explícita desde el modal de lápiz amarillo
-        $academicoController->modificarEstudiante();
+    case 'matricula':
+    case 'mostrar_matricula':
+        $controller->mostrarMatricula();
         break;
 
-    case 'borrar_estudiante':
-        // Baja definitiva coordinada (Funciona para Alumnos o Docentes según parámetros)
-        $academicoController->borrarEstudiante();
+    case 'guardar_matricula':
+        $controller->guardarMatricula();
         break;
 
-    // ==========================================
-    // SECCIÓN 4: REPORTES Y BOLETAS
-    // ==========================================
-    case 'ver_boleta':
-        $academicoController->verBoletaNotas();
+    case 'guardar_nota':
+        $controller->guardarNota();
         break;
 
-    case 'imprimir_boleta':
-        $academicoController->imprimirBoleta();
+    case 'boleta_notas':
+        $controller->boletaNotas();
         break;
 
-    // ==========================================
-    // MANEJO DE EXCEPCIONES: RUTA POR DEFECTO
-    // ==========================================
+    case 'editar_estudiante':
+        $controller->editarEstudiante();
+        break;
+
+    case 'actualizar_estudiante':
+        $controller->actualizarEstudiante();
+        break;
+
+    case 'usuarios_lista':
+    case 'directorio_perfiles':
+        $controller->usuariosLista();
+        break;
+
+    case 'editar_usuario':
+    case 'editar_perfil':
+        $controller->editarUsuarioDirectorio();
+        break;
+
+    case 'actualizar_usuario_directorio':
+        $controller->actualizarUsuarioDirectorio();
+        break;
+
+    case 'eliminar_usuario':
+    case 'eliminar_perfil':
+        $controller->eliminarUsuario();
+        break;
+
+    case 'registro':
+    case 'registro_usuarios':
+        $controller->registroUsuarios();
+        break;
+
+    case 'datos_personales':
+    case 'perfil':
+        $controller->datosPersonales();
+        break;
+
+    case 'actualizar_password':
+    case 'cambiar_password':
+        $controller->actualizarPassword();
+        break;
+
+    case 'actualizar_datos_personales':
+        $controller->actualizarDatosPersonales();
+        break;
+
+    case 'actualizar_foto':
+    case 'subir_foto':
+        $controller->actualizarFotoPerfil();
+        break;
+
+    case 'logout':
+        session_destroy();
+        header('Location: index.php?action=login');
+        exit;
+
     default:
-        header("Location: index.php?action=dashboard");
+        $controller->login();
         break;
 }
-?>

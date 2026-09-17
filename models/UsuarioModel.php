@@ -21,7 +21,7 @@ class UsuarioModel {
             $stmtUser->bindParam(':apellido', $apellido);
             $stmtUser->execute();
 
-            if ($rol === 'estudiante') {
+            if ($rol === 'estudiante' || $rol === 'Alumno') {
                 $queryEst = "INSERT INTO estudiantes (nie, nombre, apellido, correo) VALUES (:nie, :nombre, :apellido, :correo)";
                 $stmtEst = $this->conn->prepare($queryEst);
                 $correo_provisional = strtolower($username) . "@institucion.edu.sv";
@@ -42,7 +42,7 @@ class UsuarioModel {
     }
 
     public function obtenerPorUsername($username) {
-        $query = "SELECT * FROM usuarios WHERE username = :username LIMIT 0,1";
+        $query = "SELECT * FROM usuarios WHERE username = :username LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':username', $username);
         $stmt->execute();

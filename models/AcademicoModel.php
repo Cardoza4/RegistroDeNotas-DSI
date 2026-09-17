@@ -1,5 +1,4 @@
 <?php
-// models/AcademicoModel.php
 class AcademicoModel {
     private $conn;
 
@@ -7,157 +6,193 @@ class AcademicoModel {
         $this->conn = $db;
     }
 
-    // NUEVO: Obtener todos los docentes para el panel del Administrador
-    public function obtenerTodosDocentes() {
-        $query = "SELECT id, username, nombre, apellido, rol FROM usuarios WHERE rol = 'docente' ORDER BY apellido ASC";
-        $stmt = $this->conn->prepare($query);
+    public function obtenerGrados() {
+        $stmt = $this->conn->prepare("SELECT DISTINCT grado FROM estudiantes WHERE grado IS NOT NULL AND grado != '' ORDER BY grado");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Obtener la lista de las materias oficiales
+    public function obtenerSecciones() {
+        $stmt = $this->conn->prepare("SELECT DISTINCT seccion FROM estudiantes WHERE seccion IS NOT NULL AND seccion != '' ORDER BY seccion");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function obtenerMaterias() {
-        $query = "SELECT * FROM materias";
-        $stmt = $this->conn->prepare($query);
+        $stmt = $this->conn->prepare("SELECT * FROM materias ORDER BY 1 ASC");
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Obtener estudiantes filtrados opcionalmente por Grado y Sección
-    public function obtenerTodosEstudiantes($grado = null, $seccion = null) {
-        $query = "SELECT * FROM estudiantes WHERE 1=1";
-        
-        if ($grado) { $query .= " AND grado = :grado"; }
-        if ($seccion) { $query .= " AND seccion = :seccion"; }
-        
-        $query .= " ORDER BY grado ASC, seccion ASC, apellido ASC";
-        $stmt = $this->conn->prepare($query);
-        
-        if ($grado) { $stmt->bindParam(':grado', $grado); }
-        if ($seccion) { $stmt->bindParam(':seccion', $seccion); }
-        
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+    public function obtenerEstudiantesPorFiltro($grado = null, $seccion = null) {
+        $sql = "SELECT * FROM estudiantes WHERE 1=1";
+        $params = [];
 
-    // Buscar alumnos por coincidencia de texto
-    public function buscarEstudiantes($termino) {
-        $query = "SELECT * FROM estudiantes WHERE nombre LIKE :termino OR apellido LIKE :termino OR nie LIKE :termino ORDER BY grado ASC, apellido ASC";
-        $stmt = $this->conn->prepare($query);
-        $likeTermino = "%" . $termino . "%";
-        $stmt->bindParam(':termino', $likeTermino);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // Insertar o actualizar notas por materia para un alumno
-    public function guardarNotasMateria($estudiante_id, $materia_id, $act1, $act2, $examen) {
-        $checkQuery = "SELECT id FROM notas WHERE estudiante_id = :estudiante_id AND materia_id = :materia_id";
-        $checkStmt = $this->conn->prepare($checkQuery);
-        $checkStmt->bindParam(':estudiante_id', $estudiante_id);
-        $checkStmt->bindParam(':materia_id', $materia_id);
-        $checkStmt->execute();
-
-        if ($checkStmt->rowCount() > 0) {
-            $query = "UPDATE notas SET actividad1 = :act1, actividad2 = :act2, examen_final = :examen 
-                      WHERE estudiante_id = :estudiante_id AND materia_id = :materia_id";
-        } else {
-            $query = "INSERT INTO notas (estudiante_id, materia_id, actividad1, actividad2, examen_final) 
-                      VALUES (:estudiante_id, :materia_id, :act1, :act2, :examen)";
+        if (!empty($grado) && $grado !== '%') {
+            $sql .= " AND grado = :grado";
+            $params[':grado'] = $grado;
+        }
+        if (!empty($seccion) && $seccion !== '%') {
+            $sql .= " AND seccion = :seccion";
+            $params[':seccion'] = $seccion;
         }
 
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':estudiante_id', $estudiante_id);
-        $stmt->bindParam(':materia_id', $materia_id);
-        $stmt->bindParam(':act1', $act1);
-        $stmt->bindParam(':act2', $act2);
-        $stmt->bindParam(':examen', $examen);
-        return $stmt->execute();
+        $sql .= " ORDER BY apellido ASC, nombre ASC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Consultar el reporte completo de materias y promedios por NIE
-    public function obtenerBoletaCompleta($nie) {
-        $query = "SELECT e.nie, e.nombre, e.apellido, e.grado, e.seccion, m.nombre_materia, n.actividad1, n.actividad2, n.examen_final, n.promedio_final 
+    public function registrarEstudianteCompleto($nie, $nombre, $apellido, $correo, $grado, $seccion) {
+        try {
+            $this->conn->beginTransaction();
+
+            $passHash = password_hash($nie, PASSWORD_BCRYPT);
+            $queryUser = "INSERT INTO usuarios (username, password, rol, nombre, apellido) 
+                          VALUES (:username, :password, 'estudiante', :nombre, :apellido)
+                          ON DUPLICATE KEY UPDATE nombre = :nombre_u, apellido = :apellido_u";
+            $stmtUser = $this->conn->prepare($queryUser);
+            $stmtUser->execute([
+                ':username'   => $nie,
+                ':password'   => $passHash,
+                ':nombre'     => $nombre,
+                ':apellido'   => $apellido,
+                ':nombre_u'   => $nombre,
+                ':apellido_u' => $apellido
+            ]);
+
+            $queryEst = "INSERT INTO estudiantes (nie, nombre, apellido, correo, grado, seccion) 
+                         VALUES (:nie, :nombre, :apellido, :correo, :grado, :seccion)
+                         ON DUPLICATE KEY UPDATE 
+                         nombre = :nombre_e, apellido = :apellido_e, correo = :correo_e, grado = :grado_e, seccion = :seccion_e";
+            $stmtEst = $this->conn->prepare($queryEst);
+            $stmtEst->execute([
+                ':nie'        => $nie,
+                ':nombre'     => $nombre,
+                ':apellido'   => $apellido,
+                ':correo'     => $correo,
+                ':grado'      => $grado,
+                ':seccion'    => $seccion,
+                ':nombre_e'   => $nombre,
+                ':apellido_e' => $apellido,
+                ':correo_e'   => $correo,
+                ':grado_e'    => $grado,
+                ':seccion_e'  => $seccion
+            ]);
+
+            $this->conn->commit();
+            return true;
+        } catch (Exception $e) {
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
+            return false;
+        }
+    }
+
+    public function guardarCalificacion($estudiante_id, $materia_id, $periodo, $act1, $act2, $examen) {
+        $promedio = ($act1 * 0.35) + ($act2 * 0.35) + ($examen * 0.30);
+
+        $query = "INSERT INTO notas (estudiante_id, materia_id, periodo, act1, act2, examen, promedio)
+                  VALUES (:estudiante_id, :materia_id, :periodo, :act1, :act2, :examen, :promedio)
+                  ON DUPLICATE KEY UPDATE 
+                  act1 = :act1_u, act2 = :act2_u, examen = :examen_u, promedio = :promedio_u";
+
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute([
+            ':estudiante_id' => $estudiante_id,
+            ':materia_id'    => $materia_id,
+            ':periodo'       => $periodo,
+            ':act1'          => $act1,
+            ':act2'          => $act2,
+            ':examen'        => $examen,
+            ':promedio'      => $promedio,
+            ':act1_u'        => $act1,
+            ':act2_u'        => $act2,
+            ':examen_u'      => $examen,
+            ':promedio_u'    => $promedio
+        ]);
+    }
+
+    public function obtenerBoletaPorNIE($nie) {
+        $query = "SELECT e.nombre, e.apellido, e.nie, e.grado, e.seccion, 
+                         m.nombre_materia AS materia, 
+                         n.periodo, n.act1, n.act2, n.examen, n.promedio
                   FROM estudiantes e
-                  CROSS JOIN materias m
-                  LEFT JOIN notas n ON e.id = n.estudiante_id AND m.id = n.materia_id
-                  WHERE e.nie = :nie";
+                  JOIN notas n ON e.id = n.estudiante_id
+                  JOIN materias m ON n.materia_id = m.id
+                  WHERE e.nie = :nie
+                  ORDER BY n.periodo ASC, m.nombre_materia ASC";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':nie', $nie);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Registro académico de nuevos alumnos
-    public function insertarEstudianteManual($nie, $nombre, $apellido, $correo, $grado, $seccion) {
-        $query = "INSERT INTO estudiantes (nie, nombre, apellido, correo, grado, seccion) VALUES (:nie, :nombre, :apellido, :correo, :grado, :seccion)";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':nie', $nie);
-        $stmt->bindParam(':nombre', $nombre);
-        $stmt->bindParam(':apellido', $apellido);
-        $stmt->bindParam(':correo', $correo);
-        $stmt->bindParam(':grado', $grado);
-        $stmt->bindParam(':seccion', $seccion);
-        return $stmt->execute();
+    public function obtenerDocentes() {
+        $stmt = $this->conn->prepare("SELECT * FROM usuarios WHERE rol = 'docente' ORDER BY apellido ASC, nombre ASC");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    public function actualizarEstudiante($id, $nombre, $apellido, $correo, $grado, $seccion) {
+        $stmt = $this->conn->prepare("UPDATE estudiantes SET nombre = :nombre, apellido = :apellido, correo = :correo, grado = :grado, seccion = :seccion WHERE id = :id");
+        return $stmt->execute([
+            ':id'       => $id,
+            ':nombre'   => $nombre,
+            ':apellido' => $apellido,
+            ':correo'   => $correo,
+            ':grado'    => $grado,
+            ':seccion'  => $seccion
+        ]);
     }
 
-    // Modificación de datos (Sincroniza Ficha y Usuario)
-    public function actualizarDatosEstudiante($id, $nie, $nombre, $apellido, $correo, $grado, $seccion) {
+    public function eliminarEstudiante($id, $nie = null) {
         try {
             $this->conn->beginTransaction();
-            $queryEst = "UPDATE estudiantes SET nombre = :nombre, apellido = :apellido, correo = :correo, grado = :grado, seccion = :seccion WHERE id = :id";
-            $stmtEst = $this->conn->prepare($queryEst);
-            $stmtEst->bindParam(':nombre', $nombre);
-            $stmtEst->bindParam(':apellido', $apellido);
-            $stmtEst->bindParam(':correo', $correo);
-            $stmtEst->bindParam(':grado', $grado);
-            $stmtEst->bindParam(':seccion', $seccion);
-            $stmtEst->bindParam(':id', $id);
-            $stmtEst->execute();
 
-            $queryUser = "UPDATE usuarios SET nombre = :nombre, apellido = :apellido WHERE username = :nie";
-            $stmtUser = $this->conn->prepare($queryUser);
-            $stmtUser->bindParam(':nombre', $nombre);
-            $stmtUser->bindParam(':apellido', $apellido);
-            $stmtUser->bindParam(':nie', $nie);
-            $stmtUser->execute();
+            // 1. Eliminar primero las notas registradas para no violar claves foráneas
+            $stmtNotas = $this->conn->prepare("DELETE FROM notas WHERE estudiante_id = :id");
+            $stmtNotas->execute([':id' => $id]);
+
+            // 2. Eliminar expediente del estudiante
+            $stmtEst = $this->conn->prepare("DELETE FROM estudiantes WHERE id = :id");
+            $stmtEst->execute([':id' => $id]);
+
+            // 3. Eliminar usuario asociado si cuenta con NIE
+            if (!empty($nie)) {
+                $stmtUser = $this->conn->prepare("DELETE FROM usuarios WHERE username = :nie AND rol = 'estudiante'");
+                $stmtUser->execute([':nie' => $nie]);
+            }
 
             $this->conn->commit();
             return true;
         } catch (Exception $e) {
-            $this->conn->rollBack();
+            if ($this->conn->inTransaction()) {
+                $this->conn->rollBack();
+            }
             return false;
         }
     }
 
-    // Dar de baja definitiva a un alumno y sus accesos
-    public function eliminarEstudianteCompleto($id, $nie) {
+    public function eliminarUsuario($id) {
+        $stmt = $this->conn->prepare("DELETE FROM usuarios WHERE id = :id");
+        return $stmt->execute([':id' => $id]);
+    }
+    public function registrarDocente($username, $nombre, $apellido, $password) {
         try {
-            $this->conn->beginTransaction();
-            $queryUser = "DELETE FROM usuarios WHERE username = :nie";
-            $stmtUser = $this->conn->prepare($queryUser);
-            $stmtUser->bindParam(':nie', $nie);
-            $stmtUser->execute();
-
-            $queryEst = "DELETE FROM estudiantes WHERE id = :id";
-            $stmtEst = $this->conn->prepare($queryEst);
-            $stmtEst->bindParam(':id', $id);
-            $stmtEst->execute();
-
-            $this->conn->commit();
-            return true;
+            $passHash = password_hash($password, PASSWORD_BCRYPT);
+            $query = "INSERT INTO usuarios (username, password, rol, nombre, apellido) 
+                      VALUES (:username, :password, 'docente', :nombre, :apellido)";
+            $stmt = $this->conn->prepare($query);
+            return $stmt->execute([
+                ':username' => $username,
+                ':password' => $passHash,
+                ':nombre'   => $nombre,
+                ':apellido' => $apellido
+            ]);
         } catch (Exception $e) {
-            $this->conn->rollBack();
             return false;
         }
-    }
-
-    // NUEVO: Eliminar un docente del sistema de forma definitiva
-    public function eliminarDocenteCompleto($id) {
-        $query = "DELETE FROM usuarios WHERE id = :id AND rol = 'docente'";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        return $stmt->execute();
     }
 }
 ?>

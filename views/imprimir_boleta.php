@@ -1,8 +1,29 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
-if (!isset($_SESSION['rol']) || ($_SESSION['rol'] !== 'docente' && $_SESSION['rol'] !== 'administrador' && $_SESSION['rol'] !== 'estudiante')) {
+if (session_status() === PHP_SESSION_NONE) { 
+    session_start(); 
+}
+
+if (!isset($_SESSION['rol'])) {
     header("Location: index.php?action=login");
     exit();
+}
+
+$datosEstudiante = !empty($boleta) ? $boleta[0] : null;
+
+// Determinar total de periodos oficiales según el grado escolar
+$esBachillerato = false;
+if ($datosEstudiante) {
+    $gradoNorm = strtoupper($datosEstudiante['grado']);
+    $esBachillerato = (strpos($gradoNorm, 'B') !== false || strpos($gradoNorm, 'BACHILLERATO') !== false);
+}
+$periodosReglamentarios = $esBachillerato ? 4 : 3;
+
+// Agrupar calificaciones por asignatura
+$materiasAgrupadas = [];
+if (!empty($boleta)) {
+    foreach ($boleta as $fila) {
+        $materiasAgrupadas[$fila['materia']][] = $fila;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -10,134 +31,172 @@ if (!isset($_SESSION['rol']) || ($_SESSION['rol'] !== 'docente' && $_SESSION['ro
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Boleta Oficial de Notas - INCA</title>
+    <title>Boleta de Calificaciones - INCA NOTES</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #ffffff; font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; }
-        .boleta-container { max-width: 850px; margin: 0 auto; padding: 30px; }
-        .header-print { text-align: center; margin-bottom: 35px; border-bottom: 3px double #0f172a; padding-bottom: 20px; }
-        .logo-inca { height: 75px; margin-bottom: 15px; }
-        .table-report th { background-color: #0f172a !important; color: #ffffff !important; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-        .table-report td { font-size: 14px; padding: 10px 12px; }
-        .info-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 30px; }
-        .text-reprobado { color: #b91c1c; font-weight: bold; }
-        .text-aprobado { color: #15803d; font-weight: bold; }
-        
+        body { background-color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .boleta-card { max-width: 900px; margin: 30px auto; background: white; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .badge-aprobado { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+        .badge-reprobado { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .fila-final { background-color: #f1f5f9; font-weight: bold; border-top: 2px solid #cbd5e1; }
+        .resumen-box { background-color: #0f172a; color: white; border-radius: 10px; }
         @media print {
             .no-print { display: none !important; }
-            .boleta-container { padding: 0; margin: 0; width: 100%; max-width: 100%; }
-            body { background-color: #ffffff; }
-            .table-report th { background-color: #0f172a !important; color: #ffffff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { background: white; }
+            .boleta-card { box-shadow: none; margin: 0; max-width: 100%; border: none !important; }
         }
     </style>
 </head>
 <body>
 
-    <div class="container no-print my-4 text-center">
-        <button onclick="window.print();" class="btn btn-dark fw-bold px-4 shadow-sm">
-            <i class="fa-solid fa-print me-2"></i> Imprimir o Guardar como PDF
-        </button>
-        <a href="index.php?action=notas" class="btn btn-outline-secondary fw-bold px-4 ms-2">
-            <i class="fa-solid fa-arrow-left me-1"></i> Volver a Control
-        </a>
-    </div>
-
-    <div class="boleta-container">
-        
-        <div class="header-print">
-            <img src="/registro_academico/img/logo_inca.png" alt="Logo INCA" class="logo-inca">
-            <h3 class="fw-bold m-0" style="color: #0f172a; letter-spacing: 0.5px;">INSTITUTO NOÉ CANJURA (INCA)</h3>
-            <p class="text-secondary small fw-semibold uppercase m-0 mt-1" style="letter-spacing: 1px;">CUADRO REGISTRO DE RENDIMIENTO ACADÉMICO</p>
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 no-print" style="max-width: 900px; margin: auto;">
+            <a href="index.php?action=notas" class="btn btn-outline-secondary btn-sm fw-bold">
+                <i class="fa-solid fa-arrow-left me-1"></i> Volver al Panel
+            </a>
+            <button onclick="window.print();" class="btn btn-primary btn-sm fw-bold">
+                <i class="fa-solid fa-print me-1"></i> Imprimir Boleta Oficial
+            </button>
         </div>
 
-        <?php if(!empty($registros)): ?>
-            <div class="info-box">
-                <div class="row g-3 small">
-                    <div class="col-6 col-sm-4">
-                        <span class="text-muted d-block">ESTUDIANTE:</span>
-                        <strong class="text-dark fs-6"><?php echo $registros[0]['apellido'] . ", " . $registros[0]['nombre']; ?></strong>
-                    </div>
-                    <div class="col-6 col-sm-4">
-                        <span class="text-muted d-block">NIE / CARNÉ:</span>
-                        <strong class="text-dark fs-6"><?php echo $registros[0]['nie']; ?></strong>
-                    </div>
-                    <div class="col-6 col-sm-4">
-                        <span class="text-muted d-block">AÑO LECTIVO:</span>
-                        <strong class="text-dark fs-6"><?php echo date('Y'); ?></strong>
-                    </div>
-                    <div class="col-6 col-sm-6">
-                        <span class="text-muted d-block">GRADO:</span>
-                        <strong class="text-dark">
-                            <?php 
-                                $grados_map = [
-                                    '1G'=>'1° Grado', '2G'=>'2° Grado', '3G'=>'3° Grado', 
-                                    '4G'=>'4° Grado', '5G'=>'5° Grado', '6G'=>'6° Grado', 
-                                    '7G'=>'7° Grado', '8G'=>'8° Grado', '9G'=>'9° Grado', 
-                                    '1B'=>'1° Año de Bachillerato', '2B'=>'2° Año de Bachillerato'
-                                ];
-                                echo $grados_map[$registros[0]['grado']] ?? $registros[0]['grado']; 
-                            ?>
-                        </strong>
-                    </div>
-                    <div class="col-6 col-sm-6">
-                        <span class="text-muted d-block">SECCIÓN:</span>
-                        <strong class="text-dark">Sección "<?php echo $registros[0]['seccion']; ?>"</strong>
-                    </div>
+        <div class="boleta-card p-4 p-md-5 border">
+            <!-- Membrete Institucional -->
+            <div class="row align-items-center border-bottom pb-4 mb-4">
+                <div class="col-3 col-sm-2 text-center">
+                    <img src="img/logo_inca.png" alt="Logo INCA" class="img-fluid" style="max-height: 80px;">
+                </div>
+                <div class="col-9 col-sm-10">
+                    <h4 class="fw-bold mb-1 text-dark">INSTITUTO NACIONAL NOÉ CANJURA</h4>
+                    <p class="text-muted mb-0 small">Sistema Integrado de Control Académico — INCA NOTES</p>
+                    <span class="badge bg-secondary mt-1">Reporte Oficial de Calificaciones y Rendimiento</span>
                 </div>
             </div>
 
+            <?php if ($datosEstudiante): ?>
+            <!-- Datos del Estudiante -->
+            <div class="row g-3 bg-light p-3 rounded-3 mb-4">
+                <div class="col-sm-5">
+                    <span class="text-muted small d-block">Estudiante:</span>
+                    <strong class="text-dark fs-6"><?= htmlspecialchars($datosEstudiante['nombre'] . ' ' . $datosEstudiante['apellido']); ?></strong>
+                </div>
+                <div class="col-sm-3">
+                    <span class="text-muted small d-block">NIE / Carné:</span>
+                    <strong class="text-primary fs-6"><?= htmlspecialchars($datosEstudiante['nie']); ?></strong>
+                </div>
+                <div class="col-sm-4">
+                    <span class="text-muted small d-block">Grado y Sección:</span>
+                    <strong class="text-dark fs-6"><?= htmlspecialchars($datosEstudiante['grado'] . ' - Sec. ' . $datosEstudiante['seccion']); ?></strong>
+                </div>
+            </div>
+
+            <!-- Tabla de Calificaciones y Cálculo Final -->
             <div class="table-responsive">
-                <table class="table table-bordered table-report align-middle">
-                    <thead>
-                        <tr class="text-center">
-                            <th class="text-start" style="width: 40%;">Asignatura / Materia</th>
-                            <th style="width: 15%;">Actividad 1<br>(35%)</th>
-                            <th style="width: 15%;">Actividad 2<br>(35%)</th>
-                            <th style="width: 15%;">Examen Final<br>(30%)</th>
-                            <th style="width: 15%;">Nota Final</th>
+                <table class="table table-bordered align-middle">
+                    <thead class="table-light text-center small text-secondary">
+                        <tr>
+                            <th class="text-start">Asignatura</th>
+                            <th style="width: 90px;">Periodo</th>
+                            <th style="width: 110px;">Act. 1 (35%)</th>
+                            <th style="width: 110px;">Act. 2 (35%)</th>
+                            <th style="width: 110px;">Examen (30%)</th>
+                            <th style="width: 110px;">Promedio</th>
+                            <th style="width: 120px;">Resultado</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach($registros as $reg): ?>
-                        <tr>
-                            <td class="fw-bold text-dark"><?php echo $reg['nombre_materia']; ?></td>
-                            <td class="text-center text-secondary"><?php echo ($reg['actividad1'] === null || $reg['actividad1'] === '') ? '0.00' : number_format($reg['actividad1'], 2); ?></td>
-                            <td class="text-center text-secondary"><?php echo ($reg['actividad2'] === null || $reg['actividad2'] === '') ? '0.00' : number_format($reg['actividad2'], 2); ?></td>
-                            <td class="text-center text-secondary"><?php echo ($reg['examen_final'] === null || $reg['examen_final'] === '') ? '0.00' : number_format($reg['examen_final'], 2); ?></td>
-                            <td class="text-center">
-                                <?php 
-                                    $promedio = isset($reg['promedio_final']) ? floatval($reg['promedio_final']) : 0.00;
-                                    $clase_nota = ($promedio >= 6.0) ? 'text-aprobado' : 'text-reprobado';
-                                ?>
-                                <span class="<?php echo $clase_nota; ?>">
-                                    <?php echo number_format($promedio, 2); ?>
-                                </span>
-                            </td>
-                        </tr>
+                        <?php 
+                        $totalPromediosMaterias = 0;
+                        $totalMateriasEvaluadas = count($materiasAgrupadas);
+
+                        foreach ($materiasAgrupadas as $nombreMateria => $notasPeriodo): 
+                            $sumaPeriodos = 0;
+                            $periodosAsentados = count($notasPeriodo);
+
+                            foreach ($notasPeriodo as $nota): 
+                                $prom = floatval($nota['promedio']);
+                                $sumaPeriodos += $prom;
+                                $aprobadoPeriodo = ($prom >= 6.0);
+                        ?>
+                            <tr class="text-center">
+                                <td class="text-start fw-semibold text-dark"><?= htmlspecialchars($nombreMateria); ?></td>
+                                <td><span class="badge bg-light text-dark border">P-<?= htmlspecialchars($nota['periodo']); ?></span></td>
+                                <td><?= number_format($nota['act1'], 2); ?></td>
+                                <td><?= number_format($nota['act2'], 2); ?></td>
+                                <td><?= number_format($nota['examen'], 2); ?></td>
+                                <td class="fw-bold text-dark"><?= number_format($prom, 2); ?></td>
+                                <td>
+                                    <span class="badge <?= $aprobadoPeriodo ? 'badge-aprobado' : 'badge-reprobado'; ?> px-2 py-1">
+                                        <?= $aprobadoPeriodo ? 'Aprobado' : 'Reprobado'; ?>
+                                    </span>
+                                </td>
+                            </tr>
+                        <?php endforeach; 
+
+                            // Cálculo del promedio final de la asignatura
+                            $promedioFinalMateria = $periodosAsentados > 0 ? ($sumaPeriodos / $periodosAsentados) : 0;
+                            $materiaAprobada = ($promedioFinalMateria >= 6.0);
+                            $totalPromediosMaterias += $promedioFinalMateria;
+                        ?>
+                            <!-- Fila de Calificación Final por Materia -->
+                            <tr class="fila-final text-center">
+                                <td colspan="5" class="text-end text-uppercase text-secondary pe-3">
+                                    <i class="fa-solid fa-award me-1 text-primary"></i> Calificación Final (<?= htmlspecialchars($nombreMateria); ?>):
+                                </td>
+                                <td class="fw-bold text-primary fs-6"><?= number_format($promedioFinalMateria, 2); ?></td>
+                                <td>
+                                    <span class="badge <?= $materiaAprobada ? 'badge-aprobado' : 'badge-reprobado'; ?> px-2 py-1 fs-7">
+                                        <?= $materiaAprobada ? 'APROBADA' : 'REPROBADA'; ?>
+                                    </span>
+                                </td>
+                            </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
 
-            <div class="row g-4 text-center mt-5 pt-4" style="font-size: 13px;">
-                <div class="col-6">
-                    <div class="mx-auto border-top border-dark border-1 pt-2" style="width: 200px;">
-                        <strong>F. Docente Encargado</strong>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="mx-auto border-top border-dark border-1 pt-2" style="width: 200px;">
-                        <strong>Sello Institucional</strong>
+            <!-- Resumen Institucional Global -->
+            <?php 
+            $promedioGeneralGlobal = $totalMateriasEvaluadas > 0 ? ($totalPromediosMaterias / $totalMateriasEvaluadas) : 0;
+            $estadoGlobal = ($promedioGeneralGlobal >= 6.0);
+            ?>
+            <div class="row g-3 my-3">
+                <div class="col-md-12">
+                    <div class="p-3 resumen-box d-flex flex-wrap justify-content-between align-items-center">
+                        <div>
+                            <span class="text-uppercase small tracking-wider text-slate-300 d-block">Rendimiento Institucional Global</span>
+                            <h5 class="fw-bold mb-0 text-white">Promedio Global del Ciclo: <?= number_format($promedioGeneralGlobal, 2); ?> / 10.0</h5>
+                        </div>
+                        <div class="mt-2 mt-md-0">
+                            <span class="badge <?= $estadoGlobal ? 'bg-success' : 'bg-danger'; ?> fs-6 px-3 py-2 text-uppercase">
+                                Condición: <?= $estadoGlobal ? 'Promovido / Aprobado' : 'En Recuperación'; ?>
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-        <?php else: ?>
-            <div class="alert alert-warning text-center my-5">
-                <h5>Expediente Incompleto</h5>
-                <p class="m-0 small">No se encontraron registros de materias o calificaciones asociadas a este número de NIE.</p>
+            <!-- Firmas Oficiales -->
+            <div class="row mt-5 pt-4 text-center text-muted small border-top">
+                <div class="col-6">
+                    <p class="mb-0">_______________________________</p>
+                    <p class="fw-bold">Firma del Docente Encargado</p>
+                </div>
+                <div class="col-6">
+                    <p class="mb-0">_______________________________</p>
+                    <p class="fw-bold">Sello de Dirección</p>
+                </div>
             </div>
-        <?php endif; ?>
+
+            <?php else: ?>
+            <div class="text-center py-5">
+                <i class="fa-solid fa-folder-open fa-3x text-muted mb-3 opacity-50"></i>
+                <h5 class="text-secondary fw-bold">No hay calificaciones registradas para este estudiante</h5>
+                <p class="text-muted small">Selecciona el botón de "Notas" en el panel anterior para asentar las evaluaciones.</p>
+            </div>
+            <?php endif; ?>
+
+        </div>
     </div>
 
 </body>

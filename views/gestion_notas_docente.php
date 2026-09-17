@@ -14,7 +14,7 @@ $msg = $_GET['msg'] ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INCA NOTES - Control de Alumnos y Notas</title>
+    <title>INCA NOTES - Registro y Control de Calificaciones</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -68,41 +68,6 @@ $msg = $_GET['msg'] ?? '';
             padding: 2.5rem 1.5rem;
         }
 
-        .admin-tabs {
-            display: flex;
-            gap: 2rem;
-            border-bottom: 2px solid var(--border);
-            margin-bottom: 2rem;
-        }
-
-        .admin-tab {
-            text-decoration: none;
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            padding-bottom: 0.75rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            position: relative;
-            transition: color 0.2s;
-        }
-
-        .admin-tab.active {
-            color: var(--text-main);
-        }
-
-        .admin-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: var(--text-main);
-            border-radius: 2px 2px 0 0;
-        }
-
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -112,41 +77,19 @@ $msg = $_GET['msg'] ?? '';
         }
 
         .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
         }
 
         .title-area h2 {
             font-size: 1.5rem;
             font-weight: 800;
             color: var(--text-main);
+            margin-bottom: 0.2rem;
         }
 
         .title-area p {
             font-size: 0.88rem;
             color: var(--text-muted);
-        }
-
-        .btn-register-top {
-            background: var(--primary);
-            color: white;
-            padding: 0.65rem 1.25rem;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 0.88rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-
-        .btn-register-top:hover {
-            background: #1d4ed8;
         }
 
         .filters-bar {
@@ -236,11 +179,11 @@ $msg = $_GET['msg'] ?? '';
         }
 
         .btn-action-badge {
-            padding: 6px 12px;
+            padding: 6px 14px;
             border-radius: 6px;
             color: white;
             text-decoration: none;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
@@ -249,8 +192,6 @@ $msg = $_GET['msg'] ?? '';
         }
         .btn-notas { background: #10b981; cursor: pointer; border: none; }
         .btn-boleta { background: #0284c7; }
-        .btn-edit-est { background: #eab308; }
-        .btn-del-est { background: #ef4444; }
         .btn-action-badge:hover { opacity: 0.9; }
 
         .btn-back {
@@ -415,7 +356,7 @@ $msg = $_GET['msg'] ?? '';
             <span>INCA NOTES</span>
         </a>
         <div style="display:flex; align-items:center; gap:15px;">
-            <span style="color:#94a3b8; font-size:0.88rem;"><i class="fa-solid fa-user-shield"></i> Panel de ADMINISTRADOR</span>
+            <span style="color:#94a3b8; font-size:0.88rem;"><i class="fa-solid fa-chalkboard-user"></i> Panel de DOCENTE</span>
             <a href="index.php?action=logout" style="color:white; text-decoration:none; font-size:0.85rem; background:rgba(255,255,255,0.1); padding:0.4rem 1rem; border-radius:6px;">Cerrar Sesión</a>
         </div>
     </nav>
@@ -423,15 +364,6 @@ $msg = $_GET['msg'] ?? '';
     <div class="container">
         <a href="index.php?action=dashboard" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Volver al Inicio</a>
         
-        <div class="admin-tabs">
-            <a href="index.php?action=gestion_notas" class="admin-tab active">
-                <i class="fa-solid fa-graduation-cap"></i> Control de Alumnos y Notas
-            </a>
-            <a href="index.php?action=gestion_docentes" class="admin-tab">
-                <i class="fa-solid fa-users-gear"></i> Gestión de Personal Docente
-            </a>
-        </div>
-
         <div class="card">
             <?php if (!empty($msg)): ?>
                 <div style="background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
@@ -442,12 +374,9 @@ $msg = $_GET['msg'] ?? '';
 
             <div class="header-top">
                 <div class="title-area">
-                    <h2>Control de Matrícula y Notas de la Institución</h2>
-                    <p>Visualiza, inscribe, modifica expedientes y gestiona calificaciones oficiales.</p>
+                    <h2>Registro y Control de Calificaciones</h2>
+                    <p>Ingresa los insumos oficiales por periodo (Act 1 35%, Act 2 35%, Examen 30%) y genera la boleta.</p>
                 </div>
-                <a href="index.php?action=matricula" class="btn-register-top">
-                    <i class="fa-solid fa-user-plus"></i> Inscribir Nuevo Estudiante
-                </a>
             </div>
 
             <div class="filters-bar">
@@ -471,10 +400,10 @@ $msg = $_GET['msg'] ?? '';
                     <thead>
                         <tr>
                             <th>NIE</th>
-                            <th>Estudiante</th>
-                            <th>Grado/Sección</th>
-                            <th>Correo Electrónico</th>
-                            <th style="text-align: right;">Acciones</th>
+                            <th>ESTUDIANTE</th>
+                            <th>GRADO/SECCIÓN</th>
+                            <th>CORREO ELECTRÓNICO</th>
+                            <th style="text-align: right;">ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -503,15 +432,13 @@ $msg = $_GET['msg'] ?? '';
                                         <button type="button" class="btn-action-badge btn-notas" onclick="abrirModalNotas('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>')">
                                             <i class="fa-solid fa-star"></i> Notas
                                         </button>
-                                        <a href="index.php?action=boleta_notas&estudiante_id=<?= $est['id'] ?>" class="btn-action-badge btn-boleta" title="Boleta"><i class="fa-solid fa-file-lines"></i></a>
-                                        <a href="index.php?action=editar_estudiante&id=<?= $est['id'] ?>" class="btn-action-badge btn-edit-est" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                                        <a href="index.php?action=eliminar_usuario&id=<?= $est['id'] ?>" class="btn-action-badge btn-del-est" title="Eliminar" onclick="return confirm('¿Eliminar estudiante?');"><i class="fa-solid fa-trash"></i></a>
+                                        <a href="index.php?action=boleta_notas&estudiante_id=<?= $est['id'] ?>" class="btn-action-badge btn-boleta" title="Generar Boleta"><i class="fa-solid fa-file-lines"></i></a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay estudiantes matriculados registrados.</td>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay estudiantes registrados.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

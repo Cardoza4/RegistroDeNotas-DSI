@@ -1,59 +1,417 @@
-body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background-color: #f4f6f9;
-    color: #333;
+/* ==========================================================================
+   INCA NOTES - ESTILOS GLOBALES Y COMPONENTES
+   ========================================================================== */
+
+:root {
+    --primary: #0284c7;
+    --primary-hover: #0369a1;
+    --primary-blue: #2563eb;
+    --primary-blue-hover: #1d4ed8;
+    --bg-main: #f8fafc;
+    --text-dark: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --card-bg: #ffffff;
+    --navbar-bg: #090e17;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+}
+
+* {
     margin: 0;
-    padding: 30px;
-}
-.container {
-    background: #ffffff;
-    padding: 25px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    max-width: 1000px;
-    margin: 0 auto;
-}
-.form-auth {
-    max-width: 400px;
-    margin: 50px auto;
-}
-label {
-    font-weight: 600;
-    display: block;
-    margin-bottom: 5px;
-    color: #4a5568;
-}
-input, select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #cbd5e1;
-    border-radius: 5px;
+    padding: 0;
     box-sizing: border-box;
-    margin-bottom: 15px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
-button, .btn {
-    background-color: #2563eb;
-    color: white;
-    padding: 10px 18px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==========================================================================
+   BARRA DE NAVEGACIÓN SUPERIOR (NAVBAR)
+   ========================================================================== */
+
+.navbar {
+    background: var(--navbar-bg);
+    color: #ffffff;
+    padding: 0.85rem 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+}
+
+/* Logo circular institucional con relieve */
+.brand-logo-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+}
+
+.brand-logo-circle img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 2px;
+    border-radius: 50%;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-tag {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid #334155;
+    color: #ffffff;
+    padding: 0.45rem 1.1rem;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 0.85rem;
     font-weight: 600;
+    transition: all 0.2s ease;
 }
-button:hover { background-color: #1d4ed8; }
-.btn-danger { background-color: #dc2626; }
-.btn-danger:hover { background-color: #b91c1c; }
-.btn-secondary { background-color: #64748b; }
-table {
+
+.btn-logout:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+}
+
+.btn-back-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.45rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #ffffff;
+    background: transparent;
+    border: 1px solid #334155;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-back-nav:hover {
+    background: #1e293b;
+    border-color: #475569;
+}
+
+/* ==========================================================================
+   SUB-NAV / PESTAÑAS SUPERIORES (NOTAS Y DOCENTES)
+   ========================================================================== */
+
+.subnav-tabs {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 3rem;
+    display: flex;
+    gap: 2rem;
+}
+
+.tab-link {
+    padding: 1rem 0.5rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.tab-link:hover {
+    color: var(--primary);
+}
+
+.tab-link.active {
+    color: var(--text-dark);
+    border-bottom-color: var(--text-dark);
+}
+
+/* ==========================================================================
+   CONTENEDOR Y ENCABEZADOS DE PÁGINA
+   ========================================================================== */
+
+.content-container {
+    max-width: 1250px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    width: 100%;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.75rem;
+}
+
+.panel-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-volver-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.55rem 1rem;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: #334155;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-volver-icon:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.panel-title h2 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--text-dark);
+}
+
+.panel-title p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.btn-primary-action {
+    background: var(--primary-blue);
+    color: #ffffff;
+    border: none;
+    padding: 0.75rem 1.4rem;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-primary-action:hover {
+    background: var(--primary-blue-hover);
+}
+
+/* ==========================================================================
+   BARRA DE FILTROS
+   ========================================================================== */
+
+.filter-bar {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-select {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    color: #334155;
+    background-color: #f8fafc;
+    min-width: 180px;
+    cursor: pointer;
+}
+
+.btn-filter {
+    background: #475569;
+    color: #ffffff;
+    border: none;
+    padding: 0.65rem 1.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-filter:hover {
+    background: #334155;
+}
+
+.filter-clear {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    text-decoration: none;
+    margin-left: auto;
+}
+
+.filter-clear:hover {
+    color: var(--primary);
+}
+
+/* ==========================================================================
+   TABLA DE CONTROL DE ALUMNOS Y NOTAS
+   ========================================================================== */
+
+.table-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.custom-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
-}
-th, td {
-    padding: 12px;
     text-align: left;
-    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.95rem;
 }
-th { background-color: #f8fafc; color: #475569; }
-tr:hover { background-color: #f1f5f9; }
-.form-pop { background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; }
+
+.custom-table th {
+    background: #f8fafc;
+    color: #64748b;
+    padding: 1rem 1.25rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.custom-table td {
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    color: #334155;
+    vertical-align: middle;
+}
+
+.custom-table tr:last-child td {
+    border-bottom: none;
+}
+
+.custom-table tr:hover td {
+    background-color: #f8fafc;
+}
+
+.badge-tag {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    display: inline-block;
+}
+
+/* Botones de acciones en fila */
+.actions-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-action {
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    border: none;
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: opacity 0.2s;
+}
+
+.btn-action:hover {
+    opacity: 0.9;
+}
+
+.btn-action.btn-notas { background: #059669; }
+.btn-action.btn-edit  { background: #eab308; }
+.btn-action.btn-print { background: #0284c7; }
+.btn-action.btn-del   { background: #ef4444; }
+
+/* ==========================================================================
+   RESPONSIVIDAD
+   ========================================================================== */
+
+@media (max-width: 900px) {
+    .navbar {
+        padding: 0.85rem 1.25rem;
+    }
+    .subnav-tabs {
+        padding: 0 1.25rem;
+    }
+    .panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .btn-primary-action {
+        width: 100%;
+        justify-content: center;
+    }
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-clear {
+        margin-left: 0;
+        text-align: center;
+    }
+}
