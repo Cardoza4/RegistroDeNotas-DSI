@@ -1,0 +1,1 @@
+Validación de pruebas cruzadas de interfaz y roles - Francisco Barrios (MVP_LAB2)
