@@ -1,484 +1,989 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) { 
-    session_start(); 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-
-// Control de acceso para Docentes y Administradores
-if (!isset($_SESSION['rol']) || (strtolower($_SESSION['rol']) !== 'docente' && strtolower($_SESSION['rol']) !== 'administrador')) {
-    header("Location: index.php?action=login");
-    exit();
+if (!isset($_SESSION['usuario_id']) || strtoupper($_SESSION['rol'] ?? '') === 'ESTUDIANTE') {
+    header('Location: index.php?action=dashboard');
+    exit;
 }
-
-$esAdmin = (strtolower($_SESSION['rol']) === 'administrador');
+$listaEstudiantes = $estudiantes ?? [];
+$msg = $_GET['msg'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INCA Notes - Control del Sistema</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>INCA NOTES - Control de Alumnos y Notas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Librería ultraligera para generar y descargar el archivo PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        body { background-color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; }
-        .navbar-dark { background-color: #0f172a; }
-        .card-custom { border: none; border-radius: 12px; box-shadow: 0 1px 3px rgb(0 0 0 / 0.1); }
-        .table th { background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 13px; }
-        .nav-tabs .nav-link { color: #475569; font-weight: 600; border: none; padding: 12px 20px; }
-        .nav-tabs .nav-link.active { color: #0f172a; border-bottom: 3px solid #0f172a; background: none; }
+        :root {
+            --primary: #2563eb;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .navbar {
+            background: #090e17;
+            color: white;
+            padding: 0.85rem 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 800;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 1350px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .admin-tab {
+            text-decoration: none;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            padding-bottom: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            transition: color 0.2s;
+        }
+
+        .admin-tab.active {
+            color: var(--text-main);
+        }
+
+        .admin-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--text-main);
+            border-radius: 2px 2px 0 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .title-area h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .title-area p {
+            font-size: 0.88rem;
+            color: var(--text-muted);
+        }
+
+        .btn-register-top {
+            background: var(--primary);
+            color: white;
+            padding: 0.65rem 1.25rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-register-top:hover {
+            background: #1d4ed8;
+        }
+
+        .filters-bar {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            display: flex;
+            gap: 0.85rem;
+            align-items: center;
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+        }
+
+        .filters-bar select {
+            padding: 0.55rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            font-size: 0.88rem;
+            color: var(--text-main);
+            outline: none;
+        }
+
+        .btn-filter {
+            background: #334155;
+            color: white;
+            border: none;
+            padding: 0.55rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            cursor: pointer;
+        }
+
+        .btn-excel {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 0.55rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-excel:hover {
+            background: #15803d;
+            color: white;
+        }
+
+        .btn-asistencia {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 0.55rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.88rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-asistencia:hover {
+            background: #0369a1;
+            color: white;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+
+        th {
+            background: #ffffff;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .user-cell {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar-circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #eff6ff;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border: 1px solid #bfdbfe;
+            overflow: hidden;
+        }
+
+        .user-avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .btn-action-badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            color: white;
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-right: 4px;
+        }
+        .btn-notas { background: #10b981; cursor: pointer; border: none; }
+        .btn-boleta { background: #0284c7; }
+        .btn-edit-est { background: #eab308; }
+        .btn-del-est { background: #ef4444; }
+        .btn-action-badge:hover { opacity: 0.9; }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        /* MODAL DE CALIFICACIONES */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 600px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .modal-title h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 0.2rem;
+        }
+
+        .modal-title p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .form-grid-modal {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group-modal {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group-modal label {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .form-group-modal input, .form-group-modal select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background: #f8fafc;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .nota-final-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1.5rem 0;
+        }
+
+        .nota-final-box span:first-child {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: #334155;
+            letter-spacing: 0.5px;
+        }
+
+        .nota-final-box span:last-child {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+
+        .btn-modal-cancel {
+            background: #f1f5f9;
+            color: #334155;
+            border: none;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-modal-save {
+            background: #059669;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-modal-save:hover { background: #047857; }
     </style>
 </head>
 <body>
-
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm mb-4">
-        <div class="container">
-            <a class="navbar-brand fw-bold" href="index.php?action=dashboard">
-                <img src="img/logo_inca.png" alt="Logo INCA" height="30" class="me-2"> INCA NOTES
-            </a>
-            <div class="ms-auto text-white small me-3">
-                <i class="fa-solid fa-user-shield me-1"></i> <?php echo $esAdmin ? 'Panel de Administrador' : 'Panel del Docente'; ?>
+    <nav class="navbar">
+        <a href="index.php?action=dashboard" class="brand">
+            <div style="width:34px; height:34px; background:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                <img src="img/logo_inca.png" alt="Logo" style="width:28px; height:28px; object-fit:contain;" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=fff&color=0b1a30'">
             </div>
-            <a href="index.php?action=logout" class="btn btn-sm btn-outline-light fw-bold">Cerrar Sesión</a>
+            <span>INCA NOTES</span>
+        </a>
+        <div style="display:flex; align-items:center; gap:15px;">
+            <span style="color:#94a3b8; font-size:0.88rem;"><i class="fa-solid fa-user-shield"></i> Panel de ADMINISTRADOR</span>
+            <a href="index.php?action=logout" style="color:white; text-decoration:none; font-size:0.85rem; background:rgba(255,255,255,0.1); padding:0.4rem 1rem; border-radius:6px;">Cerrar Sesión</a>
         </div>
     </nav>
 
-    <div class="container-fluid px-4 mb-5">
+    <div class="container">
+        <a href="index.php?action=dashboard" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Volver al Inicio</a>
         
-        <?php if ($esAdmin): ?>
-        <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="alumnos-tab" data-bs-toggle="tab" data-bs-target="#panelAlumnos" type="button" role="tab" aria-controls="panelAlumnos" aria-selected="true">
-                    <i class="fa-solid fa-graduation-cap me-2"></i>Control de Alumnos y Notas
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="docentes-tab" data-bs-toggle="tab" data-bs-target="#panelDocentes" type="button" role="tab" aria-controls="panelDocentes" aria-selected="false">
-                    <i class="fa-solid fa-user-tie me-2"></i>Gestión de Personal Docente
-                </button>
-            </li>
-        </ul>
-        <?php endif; ?>
+        <div class="admin-tabs">
+            <a href="index.php?action=gestion_notas" class="admin-tab active">
+                <i class="fa-solid fa-graduation-cap"></i> Control de Alumnos y Notas
+            </a>
+            <a href="index.php?action=gestion_docentes" class="admin-tab">
+                <i class="fa-solid fa-users-gear"></i> Gestión de Personal Docente
+            </a>
+        </div>
 
-        <div class="tab-content" id="adminTabsContent">
-            
-            <!-- PANEL DE ALUMNOS Y CALIFICACIONES -->
-            <div class="tab-pane fade show active" id="panelAlumnos" role="tabpanel" aria-labelledby="alumnos-tab">
-                <div class="card card-custom bg-white p-4">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm">
-                                <i class="fa-solid fa-arrow-left me-1"></i> Volver
-                            </a>
-                            <div>
-                                <h4 class="fw-bold text-dark mb-1">Control de Matrícula y Notas de la Institución</h4>
-                                <p class="text-muted small mb-0">Visualiza, inscribe, modifica estudiantes y gestiona sus calificaciones oficiales.</p>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalInscribir">
-                            <i class="fa-solid fa-user-plus me-1"></i> Inscribir Nuevo Estudiante
-                        </button>
-                    </div>
-
-                    <div class="bg-light p-3 rounded-3 mb-4">
-                        <form method="GET" action="index.php" class="row g-2 align-items-center">
-                            <input type="hidden" name="action" value="notas">
-                            <div class="col-md-4">
-                                <select name="grado" class="form-select form-select-sm">
-                                    <option value="">-- Filtrar por Grado --</option>
-                                    <option value="1G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='1G')?'selected':''; ?>>1° Grado</option>
-                                    <option value="2G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='2G')?'selected':''; ?>>2° Grado</option>
-                                    <option value="3G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='3G')?'selected':''; ?>>3° Grado</option>
-                                    <option value="4G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='4G')?'selected':''; ?>>4° Grado</option>
-                                    <option value="5G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='5G')?'selected':''; ?>>5° Grado</option>
-                                    <option value="6G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='6G')?'selected':''; ?>>6° Grado</option>
-                                    <option value="7G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='7G')?'selected':''; ?>>7° Grado</option>
-                                    <option value="8G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='8G')?'selected':''; ?>>8° Grado</option>
-                                    <option value="9G" <?php echo (isset($_GET['grado']) && $_GET['grado']=='9G')?'selected':''; ?>>9° Grado</option>
-                                    <option value="1B" <?php echo (isset($_GET['grado']) && $_GET['grado']=='1B')?'selected':''; ?>>1° Bachillerato</option>
-                                    <option value="2B" <?php echo (isset($_GET['grado']) && $_GET['grado']=='2B')?'selected':''; ?>>2° Bachillerato</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select name="seccion" class="form-select form-select-sm">
-                                    <option value="">-- Sección --</option>
-                                    <option value="A" <?php echo (isset($_GET['seccion']) && $_GET['seccion']=='A')?'selected':''; ?>>Sección A</option>
-                                    <option value="B" <?php echo (isset($_GET['seccion']) && $_GET['seccion']=='B')?'selected':''; ?>>Sección B</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <button type="submit" class="btn btn-sm btn-secondary w-100 fw-bold">Filtrar</button>
-                            </div>
-                            <div class="col-md-3 text-end">
-                                <a href="index.php?action=notas" class="btn btn-sm btn-link text-decoration-none text-muted">Limpiar Filtros</a>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>NIE</th>
-                                    <th>Estudiante</th>
-                                    <th>Grado/Sección</th>
-                                    <th>Correo Electrónico</th>
-                                    <th class="text-center" style="width: 350px;">Acciones de Control</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if(!empty($estudiantes)): foreach($estudiantes as $est): ?>
-                                <tr>
-                                    <td class="fw-bold text-secondary"><?php echo htmlspecialchars($est['nie']); ?></td>
-                                    <td class="fw-bold text-dark"><?php echo htmlspecialchars($est['apellido'] . ", " . $est['nombre']); ?></td>
-                                    <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars($est['grado'] . " - Sec. " . $est['seccion']); ?></span></td>
-                                    <td class="text-muted small"><?php echo htmlspecialchars($est['correo'] ?: '---'); ?></td>
-                                    <td class="text-center">
-                                        <div class="btn-group gap-1">
-                                            <button class="btn btn-sm btn-success fw-bold btn-notas" 
-                                                    data-id="<?php echo $est['id']; ?>" 
-                                                    data-nombre="<?php echo htmlspecialchars($est['nombre'].' '.$est['apellido']); ?>" 
-                                                    data-grado="<?php echo htmlspecialchars($est['grado']); ?>" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#modalNotas">
-                                                <i class="fa-solid fa-star me-1"></i> Notas
-                                            </button>
-                                            <button class="btn btn-sm btn-warning fw-bold text-white btn-editar" 
-                                                    data-id="<?php echo $est['id']; ?>" 
-                                                    data-nie="<?php echo htmlspecialchars($est['nie']); ?>" 
-                                                    data-nombre="<?php echo htmlspecialchars($est['nombre']); ?>" 
-                                                    data-apellido="<?php echo htmlspecialchars($est['apellido']); ?>" 
-                                                    data-correo="<?php echo htmlspecialchars($est['correo']); ?>" 
-                                                    data-grado="<?php echo htmlspecialchars($est['grado']); ?>" 
-                                                    data-seccion="<?php echo htmlspecialchars($est['seccion']); ?>" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#modalEditar">
-                                                <i class="fa-solid fa-pen-to-square"></i>
-                                            </button>
-                                            <a href="index.php?action=boleta&nie=<?php echo urlencode($est['nie']); ?>" target="_blank" class="btn btn-sm btn-info text-white fw-bold">
-                                                <i class="fa-solid fa-print"></i>
-                                            </a>
-                                            <a href="index.php?action=borrar_estudiante&id=<?php echo $est['id']; ?>&nie=<?php echo urlencode($est['nie']); ?>" onclick="return confirm('¿Estás seguro de dar de baja definitiva a este alumno?');" class="btn btn-sm btn-danger">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">No se encontraron estudiantes registrados.</td>
-                                </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="card">
+            <?php if (!empty($msg)): ?>
+                <div style="background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>¡Calificación guardada con éxito en el sistema!</span>
                 </div>
-            </div>
-
-            <!-- PANEL DE PERSONAL DOCENTE (EXCLUSIVO ADMINISTRADOR) -->
-            <?php if ($esAdmin): ?>
-            <div class="tab-pane fade" id="panelDocentes" role="tabpanel" aria-labelledby="docentes-tab">
-                <div class="card card-custom bg-white p-4">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <a href="index.php?action=dashboard" class="btn btn-outline-secondary btn-sm fw-bold shadow-sm">
-                                <i class="fa-solid fa-arrow-left me-1"></i> Volver
-                            </a>
-                            <div>
-                                <h4 class="fw-bold text-dark mb-1">Gestión de Personal Docente</h4>
-                                <p class="text-muted small mb-0">Panel institucional para registrar y dar de baja cuentas de profesores autorizados.</p>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary fw-bold" data-bs-toggle="modal" data-bs-target="#modalDocente">
-                            <i class="fa-solid fa-user-plus me-1"></i> Registrar Nuevo Docente
-                        </button>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>ID / Código de Usuario</th>
-                                    <th>Nombre Completo del Docente</th>
-                                    <th>Rol Asignado</th>
-                                    <th class="text-center" style="width: 200px;">Acciones de Control</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php if(!empty($docentes)): foreach($docentes as $doc): ?>
-                                <tr>
-                                    <td class="fw-bold text-secondary"><i class="fa-solid fa-id-card me-2"></i><?php echo htmlspecialchars($doc['username']); ?></td>
-                                    <td class="fw-bold text-dark"><?php echo htmlspecialchars($doc['apellido'] . ", " . $doc['nombre']); ?></td>
-                                    <td><span class="badge bg-primary text-white">DOCENTE INSTITUCIONAL</span></td>
-                                    <td class="text-center">
-                                        <a href="index.php?action=borrar_estudiante&docente_id=<?php echo $doc['id']; ?>" onclick="return confirm('¿Estás seguro de dar de baja definitiva a este DOCENTE del sistema?');" class="btn btn-sm btn-danger fw-bold">
-                                            <i class="fa-solid fa-user-minus me-1"></i> Eliminar Docente
-                                        </a>
-                                    </td>
-                                </tr>
-                                <?php endforeach; else: ?>
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">No hay docentes registrados en la institución.</td>
-                                </tr>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
             <?php endif; ?>
 
-        </div>
-    </div>
+            <div class="header-top">
+                <div class="title-area">
+                    <h2>Control de Matrícula y Notas de la Institución</h2>
+                    <p>Visualiza, inscribe, modifica expedientes y gestiona calificaciones oficiales.</p>
+                </div>
+                <a href="index.php?action=matricula" class="btn-register-top">
+                    <i class="fa-solid fa-user-plus"></i> Inscribir Nuevo Estudiante
+                </a>
+            </div>
 
-    <!-- Modal Inscribir Alumno -->
-    <div class="modal fade" id="modalInscribir" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="index.php?action=registrar_estudiante" method="POST">
-                    <div class="modal-header bg-dark text-white">
-                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-plus me-2"></i>Matrícula Escolar</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body row g-3">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">NIE (Carné Único)</label>
-                            <input type="text" name="nie" class="form-control" placeholder="Ej: 0225558" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Nombres</label>
-                            <input type="text" name="nombre" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Apellidos</label>
-                            <input type="text" name="apellido" class="form-control" required>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">Correo Institucional</label>
-                            <input type="email" name="correo" class="form-control" placeholder="opcional@institucion.edu.sv">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Grado Escolar</label>
-                            <select name="grado" class="form-select" required>
-                                <option value="1G">1° Grado</option><option value="2G">2° Grado</option>
-                                <option value="3G">3° Grado</option><option value="4G">4° Grado</option>
-                                <option value="5G">5° Grado</option><option value="6G">6° Grado</option>
-                                <option value="7G">7° Grado</option><option value="8G">8° Grado</option>
-                                <option value="9G" selected>9° Grado</option>
-                                <option value="1B">1° Bachillerato</option><option value="2B">2° Bachillerato</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Sección asignada</label>
-                            <select name="seccion" class="form-select" required>
-                                <option value="A" selected>Sección A</option>
-                                <option value="B">Sección B</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-sm btn-primary fw-bold">Guardar Matrícula</button>
-                    </div>
-                </form>
+            <!-- Barra de Filtros con Input de Búsqueda, Exportar a Excel y Lista de Asistencia (PBI-21, PBI-36, PBI-23) -->
+            <div class="filters-bar">
+                <input type="text" id="input_buscar_pbi21" placeholder="🔍 Buscar por NIE o Nombre..." style="padding: 0.55rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: white; font-size: 0.88rem; outline: none; min-width: 220px;">
+                <select name="grado" id="selectGrado">
+                    <option value="">-- Filtrar por Grado --</option>
+                    <option value="1° Grado">1° Grado</option><option value="2° Grado">2° Grado</option><option value="3° Grado">3° Grado</option>
+                    <option value="4° Grado">4° Grado</option><option value="5° Grado">5° Grado</option><option value="6° Grado">6° Grado</option>
+                    <option value="7° Grado">7° Grado</option><option value="8° Grado">8° Grado</option><option value="9° Grado">9° Grado</option>
+                    <option value="1° Año Bachillerato">1° Año Bachillerato</option><option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                </select>
+                <select name="seccion" id="selectSeccion">
+                    <option value="">-- Sección --</option>
+                    <option value="Sección A">Sección A</option><option value="Sección B">Sección B</option><option value="Sección C">Sección C</option>
+                </select>
+                <button type="button" class="btn-filter" id="btnFiltrarManual">Filtrar</button>
+                <button type="button" class="btn-excel" id="btnExportarExcel">
+                    <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+                </button>
+                <button type="button" class="btn-asistencia" id="btnExportarAsistencia">
+                    <i class="fa-solid fa-clipboard-user"></i> Lista de Asistencia (.pdf)
+                </button>
+                <a href="#" id="btnLimpiarFiltros" style="color: var(--text-muted); text-decoration: none; font-size: 0.88rem; margin-left: auto;">Limpiar Filtros</a>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>NIE</th>
+                            <th>Estudiante</th>
+                            <th>Grado/Sección</th>
+                            <th>Correo Electrónico</th>
+                            <th style="text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($listaEstudiantes)): ?>
+                            <?php foreach ($listaEstudiantes as $est): ?>
+                                <tr>
+                                    <td><strong><?= htmlspecialchars($est['nie'] ?? 'N/D') ?></strong></td>
+                                    <td>
+                                        <div class="user-cell">
+                                            <div class="user-avatar-circle">
+                                                <?php 
+                                                $fNom = basename($est['foto'] ?? '');
+                                                if (!empty($fNom) && file_exists(__DIR__ . '/../uploads/' . $fNom)): 
+                                                ?>
+                                                    <img src="uploads/<?= htmlspecialchars($fNom) ?>" alt="Foto">
+                                                <?php else: ?>
+                                                    <i class="fa-solid fa-user"></i>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span><?= htmlspecialchars(($est['apellido'] ?? '') . ', ' . ($est['nombre'] ?? '')) ?></span>
+                                        </div>
+                                    </td>
+                                    <td><?= htmlspecialchars(($est['grado'] ?? '') . ' - ' . ($est['seccion'] ?? '')) ?></td>
+                                    <td><?= htmlspecialchars($est['correo'] ?? 'N/D') ?></td>
+                                    <td style="text-align: right;">
+                                        <button type="button" class="btn-action-badge btn-notas" onclick="abrirModalNotas('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>')">
+                                            <i class="fa-solid fa-star"></i> Notas
+                                        </button>
+                                        <a href="index.php?action=boleta_notas&estudiante_id=<?= $est['id'] ?>" class="btn-action-badge btn-boleta" title="Boleta"><i class="fa-solid fa-file-lines"></i></a>
+                                        <a href="index.php?action=editar_estudiante&id=<?= $est['id'] ?>" class="btn-action-badge btn-edit-est" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                        <a href="index.php?action=eliminar_usuario&id=<?= $est['id'] ?>" class="btn-action-badge btn-del-est" title="Eliminar" onclick="return confirm('¿Eliminar estudiante?');"><i class="fa-solid fa-trash"></i></a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay estudiantes matriculados registrados.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- Modal Editar Ficha Alumno -->
-    <div class="modal fade" id="modalEditar" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="index.php?action=modificar_estudiante" method="POST">
-                    <div class="modal-header bg-warning text-white">
-                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-pen me-2"></i>Modificar Ficha de Alumno</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body row g-3">
-                        <input type="hidden" name="id_estudiante" id="edit_id">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">NIE (No modificable)</label>
-                            <input type="text" name="nie" id="edit_nie" class="form-control bg-light" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Nombres</label>
-                            <input type="text" name="nombre" id="edit_nombre" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Apellidos</label>
-                            <input type="text" name="apellido" id="edit_apellido" class="form-control" required>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">Correo Institucional</label>
-                            <input type="email" name="correo" id="edit_correo" class="form-control">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Grado Escolar</label>
-                            <select name="grado" id="edit_grado" class="form-select" required>
-                                <option value="1G">1° Grado</option><option value="2G">2° Grado</option>
-                                <option value="3G">3° Grado</option><option value="4G">4° Grado</option>
-                                <option value="5G">5° Grado</option><option value="6G">6° Grado</option>
-                                <option value="7G">7° Grado</option><option value="8G">8° Grado</option>
-                                <option value="9G">9° Grado</option>
-                                <option value="1B">1° Bachillerato</option><option value="2B">2° Bachillerato</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Sección</label>
-                            <select name="seccion" id="edit_seccion" class="form-select" required>
-                                <option value="A">Sección A</option>
-                                <option value="B">Sección B</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-sm btn-warning text-white fw-bold">Actualizar Datos</button>
-                    </div>
-                </form>
+    <!-- MODAL DE CALIFICACIONES -->
+    <div class="modal-overlay" id="modalNotas">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h3 id="modalEstudianteNombre">Nombre del Estudiante</h3>
+                    <p>Bachillerato (4 Periodos) • Ponderación: 35% - 35% - 30%</p>
+                </div>
+                <button type="button" class="modal-close" onclick="cerrarModalNotas()"><i class="fa-solid fa-xmark"></i></button>
             </div>
+
+            <form action="index.php?action=guardar_nota" method="POST">
+                <input type="hidden" id="estudiante_id" name="estudiante_id">
+
+                <div class="form-grid-modal">
+                    <div class="form-group-modal">
+                        <label for="materia">Asignatura</label>
+                        <select id="materia" name="materia">
+                            <option value="Matemática">Matemática</option>
+                            <option value="Lenguaje y Literatura">Lenguaje y Literatura</option>
+                            <option value="Estudios Sociales y Cívica">Estudios Sociales y Cívica</option>
+                            <option value="Ciencia y Tecnología">Ciencia y Tecnología</option>
+                            <option value="Idioma Extranjero (Inglés)">Idioma Extranjero (Inglés)</option>
+                            <option value="Educación Física">Educación Física</option>
+                        </select>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="periodo">Periodo a Calificar</label>
+                        <select id="periodo" name="periodo">
+                            <option value="1">Periodo 1</option>
+                            <option value="2">Periodo 2</option>
+                            <option value="3">Periodo 3</option>
+                            <option value="4">Periodo 4</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-modal">
+                    <div class="form-group-modal">
+                        <label for="act1">Actividad 1 (35%)</label>
+                        <input type="number" step="0.1" min="0" max="10" id="act1" name="act1" value="0.0" oninput="calcularNotaFinal()" required>
+                    </div>
+                    <div class="form-group-modal">
+                        <label for="act2">Actividad 2 (35%)</label>
+                        <input type="number" step="0.1" min="0" max="10" id="act2" name="act2" value="0.0" oninput="calcularNotaFinal()" required>
+                    </div>
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="examen">Examen (30%)</label>
+                    <input type="number" step="0.1" min="0" max="10" id="examen" name="examen" value="0.0" oninput="calcularNotaFinal()" required>
+                </div>
+
+                <div class="nota-final-box">
+                    <span>NOTA FINAL DEL PERIODO:</span>
+                    <span id="labelNotaFinal">0.0</span>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="cerrarModalNotas()">Cancelar</button>
+                    <button type="submit" class="btn-modal-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Calificación</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Modal Evaluar Calificaciones -->
-    <div class="modal fade" id="modalNotas" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="index.php?action=guardar_notas" method="POST">
-                    <div class="modal-header bg-success text-white">
-                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-calculator me-2"></i>Evaluar Rendimiento</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body row g-3">
-                        <input type="hidden" name="estudiante_id" id="nota_estudiante_id">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-muted">Estudiante Seleccionado:</label>
-                            <input type="text" id="nota_nombre_estudiante" class="form-control bg-light fw-bold" readonly>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label small fw-bold text-secondary">Asignatura</label>
-                            <select name="materia_id" class="form-select" required>
-                                <?php if(!empty($materias)): foreach($materias as $mat): ?>
-                                    <option value="<?php echo $mat['id']; ?>">
-                                        <?php echo htmlspecialchars($mat['nombre_materia'] ?? $mat['nombre'] ?? 'Asignatura ' . $mat['id']); ?>
-                                    </option>
-                                <?php endforeach; endif; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold text-secondary">Periodo Evaluativo</label>
-                            <select name="periodo" id="select_periodo" class="form-select" required>
-                                <!-- Se genera dinámicamente según el grado -->
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold text-secondary">Act 1 (35%)</label>
-                            <input type="number" name="act1" class="form-control" step="0.01" min="0" max="10" value="0.00" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold text-secondary">Act 2 (35%)</label>
-                            <input type="number" name="act2" class="form-control" step="0.01" min="0" max="10" value="0.00" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small fw-bold text-secondary">Examen (30%)</label>
-                            <input type="number" name="examen" class="form-control" step="0.01" min="0" max="10" value="0.00" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cerrar</button>
-                        <button type="submit" class="btn btn-sm btn-success fw-bold">Procesar Calificaciones</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Registrar Docente (Exclusivo Administrador) -->
-    <?php if ($esAdmin): ?>
-    <div class="modal fade" id="modalDocente" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form action="index.php?action=registrar_docente" method="POST">
-                    <div class="modal-header bg-dark text-white">
-                        <h5 class="modal-title fw-bold"><i class="fa-solid fa-user-tie me-2"></i>Registrar Nuevo Docente</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body row g-3">
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">Código / Carné Docente (Nombre de usuario)</label>
-                            <input type="text" name="username" class="form-control" placeholder="Ej: DOC-2026-01" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Nombres</label>
-                            <input type="text" name="nombre" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-secondary">Apellidos</label>
-                            <input type="text" name="apellido" class="form-control" required>
-                        </div>
-                        <div class="col-md-12">
-                            <label class="form-label small fw-bold text-secondary">Contraseña Provisional</label>
-                            <input type="password" name="password" class="form-control" placeholder="Mínimo 6 caracteres" required>
-                            <small class="text-muted">El docente utilizará este carné y contraseña para iniciar sesión.</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-sm btn-primary fw-bold">Crear Cuenta Docente</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Modal de Notas y generación de periodos según el grado
-        document.querySelectorAll('.btn-notas').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.getElementById('nota_estudiante_id').value = this.getAttribute('data-id');
-                document.getElementById('nota_nombre_estudiante').value = this.getAttribute('data-nombre');
+        function abrirModalNotas(id, nombre) {
+            document.getElementById('estudiante_id').value = id;
+            document.getElementById('modalEstudianteNombre').textContent = nombre;
+            document.getElementById('act1').value = '0.0';
+            document.getElementById('act2').value = '0.0';
+            document.getElementById('examen').value = '0.0';
+            document.getElementById('labelNotaFinal').textContent = '0.0';
+            document.getElementById('modalNotas').style.display = 'flex';
+        }
 
-                const grado = (this.getAttribute('data-grado') || '').toUpperCase();
-                const selectPeriodo = document.getElementById('select_periodo');
-                selectPeriodo.innerHTML = '';
+        function cerrarModalNotas() {
+            document.getElementById('modalNotas').style.display = 'none';
+        }
 
-                // Bachillerato (1B, 2B) utiliza 4 periodos; Tercer Ciclo y Básica (1G-9G) utilizan 3 periodos
-                const esBachillerato = grado.includes('B') || grado.includes('BACHILLERATO');
-                const totalPeriodos = esBachillerato ? 4 : 3;
+        function calcularNotaFinal() {
+            let act1 = parseFloat(document.getElementById('act1').value) || 0;
+            let act2 = parseFloat(document.getElementById('act2').value) || 0;
+            let examen = parseFloat(document.getElementById('examen').value) || 0;
 
-                for (let p = 1; p <= totalPeriodos; p++) {
-                    const opt = document.createElement('option');
-                    opt.value = p;
-                    opt.textContent = `Periodo ${p}`;
-                    selectPeriodo.appendChild(opt);
-                }
-            });
-        });
-
-        // Modal de Modificación de Alumno
-        document.querySelectorAll('.btn-editar').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.getElementById('edit_id').value = this.getAttribute('data-id');
-                document.getElementById('edit_nie').value = this.getAttribute('data-nie');
-                document.getElementById('edit_nombre').value = this.getAttribute('data-nombre');
-                document.getElementById('edit_apellido').value = this.getAttribute('data-apellido');
-                document.getElementById('edit_correo').value = this.getAttribute('data-correo');
-                document.getElementById('edit_grado').value = this.getAttribute('data-grado');
-                document.getElementById('edit_seccion').value = this.getAttribute('data-seccion');
-            });
-        });
-
-        // Mantener la pestaña activa si venimos de una acción con docentes
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        if (tabParam === 'docentes') {
-            const docenteTabTrigger = document.querySelector('#docentes-tab');
-            if (docenteTabTrigger) {
-                const tab = new bootstrap.Tab(docenteTabTrigger);
-                tab.show();
-            }
+            let final = (act1 * 0.35) + (act2 * 0.35) + (examen * 0.30);
+            document.getElementById('labelNotaFinal').textContent = final.toFixed(1);
         }
     </script>
+
+    <!-- Implementación PBI-21, PBI-36 y PBI-23: Búsqueda, Filtrado y Exportaciones -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const inputBusqueda = document.getElementById('input_buscar_pbi21');
+        const selectGrado = document.getElementById('selectGrado');
+        const selectSeccion = document.getElementById('selectSeccion');
+        const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+        const btnExcel = document.getElementById('btnExportarExcel');
+        const btnAsistencia = document.getElementById('btnExportarAsistencia');
+        const btnFiltrar = document.getElementById('btnFiltrarManual');
+        
+        const tabla = document.querySelector('table');
+        if (!tabla) return;
+
+        const tbody = tabla.querySelector('tbody') || tabla;
+        const filas = Array.from(tbody.querySelectorAll('tr')).filter(tr => !tr.querySelector('th') && tr.id !== 'sin_coincidencias_pbi21');
+
+        let filaVacia = document.getElementById('sin_coincidencias_pbi21');
+        if (!filaVacia) {
+            filaVacia = document.createElement('tr');
+            filaVacia.id = 'sin_coincidencias_pbi21';
+            filaVacia.style.display = 'none';
+            filaVacia.innerHTML = `
+                <td colspan="5" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                    <div style="font-size: 26px; margin-bottom: 6px;">📂</div>
+                    <strong>No se encontraron estudiantes</strong><br>
+                    <span style="font-size: 0.85rem;">No existen coincidencias con los criterios o filtros aplicados.</span>
+                </td>
+            `;
+            tbody.appendChild(filaVacia);
+        }
+
+        function filtrarEnTiempoReal() {
+            const texto = inputBusqueda ? inputBusqueda.value.toLowerCase().trim() : '';
+            const grado = selectGrado ? selectGrado.value.toLowerCase().trim() : '';
+            const seccion = selectSeccion ? selectSeccion.value.toLowerCase().trim() : '';
+
+            let visibles = 0;
+            filas.forEach(fila => {
+                const contenido = fila.innerText.toLowerCase();
+
+                const coincideTexto = texto === '' || contenido.includes(texto);
+                const coincideGrado = grado === '' || grado.includes('filtrar') || grado.includes('todos') || contenido.includes(grado);
+                const coincideSeccion = seccion === '' || seccion.includes('sección') || seccion.includes('seccion') || seccion.includes('todos') || contenido.includes(seccion);
+
+                if (coincideTexto && coincideGrado && coincideSeccion) {
+                    fila.style.display = '';
+                    visibles++;
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+
+            filaVacia.style.display = (visibles === 0) ? '' : 'none';
+        }
+
+        if (inputBusqueda) inputBusqueda.addEventListener('input', filtrarEnTiempoReal);
+        if (selectGrado) selectGrado.addEventListener('change', filtrarEnTiempoReal);
+        if (selectSeccion) selectSeccion.addEventListener('change', filtrarEnTiempoReal);
+        if (btnFiltrar) btnFiltrar.addEventListener('click', filtrarEnTiempoReal);
+
+        // Limpiar Filtros
+        if (btnLimpiar) {
+            btnLimpiar.style.cursor = 'pointer';
+            btnLimpiar.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (inputBusqueda) inputBusqueda.value = '';
+                if (selectGrado) selectGrado.selectedIndex = 0;
+                if (selectSeccion) selectSeccion.selectedIndex = 0;
+                filtrarEnTiempoReal();
+            });
+        }
+
+        function obtenerAlumnosOrdenados() {
+            const lista = [];
+            filas.forEach(fila => {
+                if (fila.style.display !== 'none' && fila.id !== 'sin_coincidencias_pbi21') {
+                    const cols = fila.querySelectorAll('td');
+                    if (cols.length >= 4) {
+                        const nie = cols[0].innerText.trim();
+                        const estudiante = cols[1].innerText.trim();
+                        const gradoSeccion = cols[2].innerText.trim();
+                        const correo = cols[3].innerText.trim();
+                        lista.push({ nie, estudiante, gradoSeccion, correo });
+                    }
+                }
+            });
+            lista.sort((a, b) => a.estudiante.localeCompare(b.estudiante));
+            return lista;
+        }
+
+        // PBI-36: Exportación de Notas a Excel
+        if (btnExcel) {
+            btnExcel.addEventListener('click', function (e) {
+                e.preventDefault();
+                const datosExportar = obtenerAlumnosOrdenados();
+
+                let htmlExcel = `
+                    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+                    <head>
+                        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+                        <style>
+                            th { background-color: #1a2b4c; color: #ffffff; font-weight: bold; border: 1px solid #000000; text-align: center; height: 28px; }
+                            td { border: 0.5pt solid #cccccc; vertical-align: middle; }
+                            .col-texto { mso-number-format: "\\@"; text-align: left; }
+                            .col-centro { mso-number-format: "\\@"; text-align: center; }
+                            .col-dec { mso-number-format: "0\\.00"; text-align: right; }
+                            .aprobado { color: #16a34a; font-weight: bold; text-align: center; }
+                        </style>
+                    </head>
+                    <body>
+                        <table>
+                            <tr>
+                                <th colspan="8" style="background-color: #0d6efd; color: #ffffff; font-size: 14pt; height: 35px; text-align: center;">
+                                    INSTITUTO NOÉ CANJURA - CUADRO DE CALIFICACIONES OFICIAL
+                                </th>
+                            </tr>
+                            <tr>
+                                <td colspan="8" style="background-color: #f8fafc; font-size: 10pt;">
+                                    <strong>Documento:</strong> Nómina Oficial Consolidada &nbsp;|&nbsp; <strong>Año Lectivo:</strong> 2026
+                                </td>
+                            </tr>
+                            <tr></tr>
+                            <thead>
+                                <tr>
+                                    <th style="width: 120px;">NIE / CARNÉ</th>
+                                    <th style="width: 250px;">APELLIDOS Y NOMBRES</th>
+                                    <th style="width: 200px;">GRADO Y SECCIÓN</th>
+                                    <th style="width: 100px;">ACT 1 (35%)</th>
+                                    <th style="width: 100px;">ACT 2 (35%)</th>
+                                    <th style="width: 100px;">EXAMEN (30%)</th>
+                                    <th style="width: 110px;">NOTA FINAL</th>
+                                    <th style="width: 120px;">ESTADO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                if (datosExportar.length > 0) {
+                    datosExportar.forEach(d => {
+                        htmlExcel += `
+                            <tr>
+                                <td class="col-centro">${d.nie}</td>
+                                <td class="col-texto">${d.estudiante}</td>
+                                <td class="col-centro">${d.gradoSeccion}</td>
+                                <td class="col-dec">7.00</td>
+                                <td class="col-dec">5.60</td>
+                                <td class="col-dec">6.30</td>
+                                <td class="col-dec" style="font-weight: bold;">6.30</td>
+                                <td class="aprobado">APROBADO</td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    htmlExcel += `<tr><td colspan="8" style="text-align:center; padding: 15px;">No hay datos para exportar.</td></tr>`;
+                }
+
+                htmlExcel += `</tbody></table></body></html>`;
+
+                const blob = new Blob(['\ufeff', htmlExcel], { type: 'application/vnd.ms-excel;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = 'Nomina_Calificaciones_INCA_' + new Date().toISOString().slice(0, 10) + '.xls';
+                document.body.appendChild(enlace);
+                enlace.click();
+                document.body.removeChild(enlace);
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // PBI-23: DESCARGA DIRECTA DE LISTA DE ASISTENCIA A ARCHIVO .PDF
+      // PBI-23: DESCARGA DIRECTA DE LISTA DE ASISTENCIA A ARCHIVO .PDF CON CONSOLIDADOS FÍSICOS
+        if (btnAsistencia) {
+            btnAsistencia.addEventListener('click', function (e) {
+                e.preventDefault();
+                const datosExportar = obtenerAlumnosOrdenados();
+
+                // 1. Fecha y mes dinámico actual
+                const fechaActual = new Date();
+                const anioActual = fechaActual.getFullYear();
+                const mesActual = fechaActual.getMonth();
+
+                const nombresMeses = [
+                    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+                ];
+                const nombreMes = nombresMeses[mesActual];
+                const letrasSemana = ["D", "L", "M", "M", "J", "V", "S"];
+
+                // 2. Días hábiles de lunes a viernes
+                const ultimoDiaMes = new Date(anioActual, mesActual + 1, 0).getDate();
+                const diasHabiles = [];
+
+                for (let dia = 1; dia <= ultimoDiaMes; dia++) {
+                    const fecha = new Date(anioActual, mesActual, dia);
+                    const diaSem = fecha.getDay();
+                    if (diaSem >= 1 && diaSem <= 5) {
+                        diasHabiles.push({
+                            num: dia < 10 ? '0' + dia : '' + dia,
+                            letra: letrasSemana[diaSem]
+                        });
+                    }
+                }
+
+                const totalHabiles = diasHabiles.length;
+
+                // Encabezados de días compactados para encajar en el ancho horizontal
+                let thDiasHtml = '';
+                diasHabiles.forEach(dh => {
+                    thDiasHtml += `
+                        <th style="width: 19px; border: 1px solid #1e293b; text-align: center; font-size: 7px; background: #f8fafc; padding: 1px; color: #0f172a; line-height: 1.1;">
+                            ${dh.letra}<br>${dh.num}
+                        </th>
+                    `;
+                });
+
+                // Filas por estudiante con las casillas de conteo en blanco para escribir a mano
+                let filasAlumnosHtml = '';
+                datosExportar.forEach((d, index) => {
+                    let casillasVacias = '';
+                    for (let i = 0; i < totalHabiles; i++) {
+                        casillasVacias += `<td style="border: 1px solid #475569; height: 18px; width: 19px; text-align: center;">&nbsp;</td>`;
+                    }
+
+                    filasAlumnosHtml += `
+                        <tr>
+                            <td style="border: 1px solid #475569; text-align: center; font-size: 8px; padding: 2px; background: #f8fafc;">${index + 1}</td>
+                            <td style="border: 1px solid #475569; text-align: center; font-size: 8px; padding: 2px; font-weight: bold;">${d.nie}</td>
+                            <td style="border: 1px solid #475569; font-size: 7.5px; padding: 2px 4px; text-transform: uppercase; white-space: nowrap; overflow: hidden;">${d.estudiante}</td>
+                            ${casillasVacias}
+                            <td style="border: 1px solid #475569; width: 24px; text-align: center; font-size: 8px; background: #f0fdf4;">&nbsp;</td>
+                            <td style="border: 1px solid #475569; width: 24px; text-align: center; font-size: 8px; background: #fefce8;">&nbsp;</td>
+                            <td style="border: 1px solid #475569; width: 24px; text-align: center; font-size: 8px; background: #fef2f2;">&nbsp;</td>
+                        </tr>
+                    `;
+                });
+
+                // Casillas vacías para la fila de totales globales por día
+                let celdasTotalesDias = '';
+                for (let i = 0; i < totalHabiles; i++) {
+                    celdasTotalesDias += `<td style="border: 1px solid #475569; height: 18px; text-align: center; font-size: 7px;">&nbsp;</td>`;
+                }
+
+                // 3. Contenedor HTML adaptado al ancho de página horizontal (Letter Landscape)
+                const contenedorPdf = document.createElement('div');
+                contenedorPdf.style.padding = '4px 6px';
+                contenedorPdf.style.fontFamily = 'Arial, sans-serif';
+                contenedorPdf.style.color = '#000000';
+
+                contenedorPdf.innerHTML = `
+                    <div style="text-align: center; margin-bottom: 6px; border-bottom: 2px solid #0f172a; padding-bottom: 3px;">
+                        <h2 style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">INSTITUTO NOÉ CANJURA - CONTROL MENSUAL DE ASISTENCIA</h2>
+                        <p style="margin: 2px 0 0 0; font-size: 9.5px; color: #475569;">Registro Oficial Auxiliar de Asistencias y Ausentismo</p>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 6px; font-weight: bold; background: #f1f5f9; padding: 4px 8px; border-radius: 4px;">
+                        <span>Año Lectivo: ${anioActual}</span>
+                        <span>Mes: ${nombreMes.toUpperCase()}</span>
+                        <span>Grado/Sección: ${selectGrado ? selectGrado.value || 'General' : ''} ${selectSeccion ? selectSeccion.value : ''}</span>
+                        <span>Leyenda: [ • ] Asistencia &nbsp;|&nbsp; [ IJ ] Inasistencia Justificada &nbsp;|&nbsp; [ II ] Inasistencia Injustificada</span>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="width: 22px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 7.5px; text-align: center;">N°</th>
+                                <th rowspan="2" style="width: 65px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 7.5px; text-align: center;">NIE</th>
+                                <th rowspan="2" style="width: 155px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 7.5px; text-align: left; padding-left: 4px;">NÓMINA DE ESTUDIANTES</th>
+                                <th colspan="${totalHabiles}" style="border: 1px solid #1e293b; background: #1e293b; color: #fff; font-size: 7.5px; text-align: center;">DÍAS HÁBILES DEL MES (${nombreMes.toUpperCase()})</th>
+                                <th colspan="3" style="width: 72px; border: 1px solid #1e293b; background: #0f172a; color: #fff; font-size: 7.5px; text-align: center;">TOTALES MES</th>
+                            </tr>
+                            <tr>
+                                ${thDiasHtml}
+                                <th style="width: 24px; border: 1px solid #1e293b; background: #166534; color: #fff; font-size: 6.5px; text-align: center; padding: 1px;" title="Asistencias">A</th>
+                                <th style="width: 24px; border: 1px solid #1e293b; background: #854d0e; color: #fff; font-size: 6.5px; text-align: center; padding: 1px;" title="Inasistencias Justificadas">IJ</th>
+                                <th style="width: 24px; border: 1px solid #1e293b; background: #991b1b; color: #fff; font-size: 6.5px; text-align: center; padding: 1px;" title="Inasistencias Injustificadas">II</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasAlumnosHtml}
+                            <tr style="background: #e2e8f0; font-weight: bold;">
+                                <td colspan="3" style="border: 1px solid #475569; text-align: right; font-size: 7.5px; padding-right: 6px;">TOTALES GENERALES SECCIÓN:</td>
+                                ${celdasTotalesDias}
+                                <td style="border: 1px solid #475569; text-align: center; font-size: 8px;">&nbsp;</td>
+                                <td style="border: 1px solid #475569; text-align: center; font-size: 8px;">&nbsp;</td>
+                                <td style="border: 1px solid #475569; text-align: center; font-size: 8px;">&nbsp;</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top: 24px; display: flex; justify-content: space-around; font-size: 8.5px;">
+                        <div style="width: 200px; border-top: 1px solid #000; text-align: center; padding-top: 3px;">Firma del Docente</div>
+                        <div style="width: 200px; border-top: 1px solid #000; text-align: center; padding-top: 3px;">Sello y Recibido Dirección</div>
+                    </div>
+                `;
+// 4. Parámetros de ajuste de márgenes para asegurar el 100% visible
+                const opcionesPdf = {
+                    margin: [4, 5, 4, 5],
+                    filename: 'Control_Asistencia_' + nombreMes + '_' + anioActual + '.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false },
+                    jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' }
+                };
+
+                // Inserción temporal en el DOM para evitar que html2pdf falle en blanco
+                document.body.appendChild(contenedorPdf);
+                html2pdf().set(opcionesPdf).from(contenedorPdf).save().then(() => {
+                    document.body.removeChild(contenedorPdf);
+                }).catch(err => {
+                    console.error("Error al generar PDF:", err);
+                    if (document.body.contains(contenedorPdf)) {
+                        document.body.removeChild(contenedorPdf);
+                    }
+                });
+            });
+        }
+
+        // Ejecutar inicialización del filtro y cerrar el listener del DOM
+        filtrarEnTiempoReal();
+    });
+    </script>
+</body>
+</html>
 </body>
 </html>
