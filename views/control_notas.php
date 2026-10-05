@@ -138,6 +138,92 @@ $materias = [
             </div>
         <?php endforeach; ?>
     </div>
+<script>
+(() => {
+    const iniciarFiltroAvanzado = () => {
+        const tabla = document.querySelector("table");
+        if (!tabla) return;
 
+        const filas = Array.from(tabla.querySelectorAll("tbody tr")).filter(
+            tr => !tr.querySelector("th") && tr.id !== "pbi21-sin-resultados"
+        );
+        if (filas.length === 0) return;
+
+        const selectores = Array.from(document.querySelectorAll("select"));
+        const selectGrado = selectores.find(s => s.name?.includes("grado") || s.id?.includes("grado")) || selectores[0] || null;
+        const selectSeccion = selectores.find(s => s.name?.includes("seccion") || s.id?.includes("seccion")) || selectores[1] || null;
+
+        let inputBusqueda = document.querySelector('input[type="search"]') || 
+                            document.querySelector('input[name*="buscar"]') || 
+                            document.querySelector('input[name*="search"]') ||
+                            document.querySelector('input[placeholder*="Buscar"]');
+
+        if (!inputBusqueda) {
+            inputBusqueda = document.createElement("input");
+            inputBusqueda.type = "text";
+            inputBusqueda.placeholder = "Buscar por NIE, Carné o Nombre...";
+            inputBusqueda.className = "form-control form-control-sm";
+            inputBusqueda.style.cssText = "display: inline-block; width: auto; max-width: 280px; margin-bottom: 10px;";
+            tabla.parentNode.insertBefore(inputBusqueda, tabla);
+        }
+
+        const totalColumnas = filas[0].querySelectorAll("td").length || 8;
+        let filaVacia = document.getElementById("pbi21-sin-resultados");
+        if (!filaVacia) {
+            filaVacia = document.createElement("tr");
+            filaVacia.id = "pbi21-sin-resultados";
+            filaVacia.style.display = "none";
+            filaVacia.innerHTML = `
+                <td colspan="${totalColumnas}" style="text-align: center; padding: 25px; color: #6c757d;">
+                    <div style="font-size: 22px; margin-bottom: 4px;">🔍</div>
+                    <strong>No se encontraron estudiantes coincidentes</strong><br>
+                    <span style="font-size: 13px;">Verifica el carné, nombre o los filtros de grado y sección seleccionados.</span>
+                </td>
+            `;
+            const tbody = tabla.querySelector("tbody") || tabla;
+            tbody.appendChild(filaVacia);
+        }
+
+        const aplicarFiltroEnVivo = () => {
+            const texto = inputBusqueda.value.toLowerCase().trim();
+            const valGrado = selectGrado && selectGrado.value ? selectGrado.value.toLowerCase().trim() : "";
+            const valSeccion = selectSeccion && selectSeccion.value ? selectSeccion.value.toLowerCase().trim() : "";
+
+            let coincidencias = 0;
+
+            filas.forEach(fila => {
+                const contenidoFila = fila.innerText.toLowerCase();
+
+                const cumpleTexto = texto === "" || contenidoFila.includes(texto);
+
+                const esGradoNeutro = valGrado === "" || valGrado === "todos" || valGrado === "0";
+                const cumpleGrado = esGradoNeutro || contenidoFila.includes(valGrado);
+
+                const esSeccionNeutra = valSeccion === "" || valSeccion === "todos" || valSeccion === "0";
+                const cumpleSeccion = esSeccionNeutra || contenidoFila.includes(valSeccion);
+
+                if (cumpleTexto && cumpleGrado && cumpleSeccion) {
+                    fila.style.display = "";
+                    coincidencias++;
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+
+            filaVacia.style.display = (coincidencias === 0) ? "" : "none";
+        };
+
+        inputBusqueda.addEventListener("input", aplicarFiltroEnVivo);
+        if (selectGrado) selectGrado.addEventListener("change", aplicarFiltroEnVivo);
+        if (selectSeccion) selectSeccion.addEventListener("change", aplicarFiltroEnVivo);
+    };
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", iniciarFiltroAvanzado);
+    } else {
+        iniciarFiltroAvanzado();
+    }
+})();
+</script>
 </body>
 </html>

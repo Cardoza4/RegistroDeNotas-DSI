@@ -1,69 +1,118 @@
 <?php
-// index.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-require_once __DIR__ . '/controllers/UsuarioController.php';
+require_once __DIR__ . '/config/Conexion.php';
 require_once __DIR__ . '/controllers/AcademicoController.php';
 
-$action = $_POST['action'] ?? $_GET['action'] ?? 'login';
+$controller = new AcademicoController();
 
-$usuarioCtrl = new UsuarioController();
-$academicoCtrl = new AcademicoController();
+$action = $_GET['action'] ?? '';
+if (empty($action) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? 'login';
+}
+
+if (empty($action)) {
+    $action = isset($_SESSION['usuario_id']) ? 'dashboard' : 'login';
+}
 
 switch ($action) {
     case 'login':
-        $usuarioCtrl->iniciarSesion();
-        break;
-
-    case 'registro':
-    case 'registrar':
-    case 'registrarUsuario':
-        $usuarioCtrl->registrarUsuario();
+        $controller->login();
         break;
 
     case 'dashboard':
-        $usuarioCtrl->dashboard();
+        $controller->dashboard();
         break;
 
-    case 'notas':
-        $academicoCtrl->administrarNotas();
+    case 'gestion_notas':
+        $controller->gestionNotas();
         break;
 
-    case 'guardar_notas':
-        $academicoCtrl->guardarNotas();
+    case 'gestion_docentes':
+    case 'gestion_personal_docente':
+        $controller->gestionDocentes();
         break;
 
-    case 'registrar_estudiante':
-        $academicoCtrl->registrarEstudiante();
-        break;
-
-    case 'modificar_estudiante':
-        $academicoCtrl->modificarEstudiante();
-        break;
-
-    case 'borrar_estudiante':
-        $academicoCtrl->borrarEstudiante();
+    case 'actualizar_docente_gestion':
+        $controller->actualizarDocenteGestion();
         break;
 
     case 'matricula':
-    case 'alumnos':
-        $academicoCtrl->matricula();
+    case 'mostrar_matricula':
+        $controller->mostrarMatricula();
         break;
 
-    case 'boleta':
-    case 'imprimir_boleta':
-        $academicoCtrl->verBoleta();
+    case 'guardar_matricula':
+        $controller->guardarMatricula();
+        break;
+
+    case 'guardar_nota':
+        $controller->guardarNota();
+        break;
+
+    case 'boleta_notas':
+        $controller->boletaNotas();
+        break;
+
+    case 'editar_estudiante':
+        $controller->editarEstudiante();
+        break;
+
+    case 'actualizar_estudiante':
+        $controller->actualizarEstudiante();
+        break;
+
+    case 'usuarios_lista':
+    case 'directorio_perfiles':
+        $controller->usuariosLista();
+        break;
+
+    case 'editar_usuario':
+    case 'editar_perfil':
+        $controller->editarUsuarioDirectorio();
+        break;
+
+    case 'actualizar_usuario_directorio':
+        $controller->actualizarUsuarioDirectorio();
+        break;
+
+    case 'eliminar_usuario':
+    case 'eliminar_perfil':
+        $controller->eliminarUsuario();
+        break;
+
+    case 'registro':
+    case 'registro_usuarios':
+        $controller->registroUsuarios();
+        break;
+
+    case 'datos_personales':
+    case 'perfil':
+        $controller->datosPersonales();
+        break;
+
+    case 'actualizar_password':
+    case 'cambiar_password':
+        $controller->actualizarPassword();
+        break;
+
+    case 'actualizar_datos_personales':
+        $controller->actualizarDatosPersonales();
+        break;
+
+    case 'actualizar_foto':
+    case 'subir_foto':
+        $controller->actualizarFotoPerfil();
         break;
 
     case 'logout':
-        $usuarioCtrl->cerrarSesion();
-        break;
+        session_destroy();
+        header('Location: index.php?action=login');
+        exit;
 
     default:
-        $usuarioCtrl->iniciarSesion();
-        break;
-
-    case 'registrar_docente':
-        $academicoCtrl->registrarDocente();
+        $controller->login();
         break;
 }
-?>
