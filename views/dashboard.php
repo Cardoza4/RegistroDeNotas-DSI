@@ -8,7 +8,11 @@ if (!isset($_SESSION['usuario_id'])) {
     exit;
 }
 
-$rolUsuario = strtoupper($_SESSION['rol'] ?? 'DOCENTE');
+$rolUsuario = strtoupper(trim($_SESSION['rol'] ?? 'DOCENTE'));
+$esAdmin = ($rolUsuario === 'ADMIN' || $rolUsuario === 'ADMINISTRADOR');
+$esDocente = ($rolUsuario === 'DOCENTE');
+$esEstudiante = ($rolUsuario === 'ESTUDIANTE');
+
 $nombreUsuario = $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Usuario';
 $fotoPerfil = trim($_SESSION['foto'] ?? '');
 
@@ -41,12 +45,13 @@ try {
     <style>
         :root {
             --primary: #2563eb;
+            --primary-dark: #1d4ed8;
             --bg-body: #f8fafc;
             --card-bg: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
             --border: #e2e8f0;
-            --radius: 12px;
+            --radius: 14px;
         }
 
         * {
@@ -64,6 +69,7 @@ try {
             flex-direction: column;
         }
 
+        /* NAVBAR */
         .navbar {
             background: #090e17;
             color: white;
@@ -71,6 +77,7 @@ try {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .brand {
@@ -80,77 +87,176 @@ try {
             color: #ffffff;
             text-decoration: none;
             font-weight: 800;
+            font-size: 1.15rem;
+            letter-spacing: 0.5px;
         }
 
+        .brand img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            border-radius: 50%;
+            background: white;
+            padding: 2px;
+        }
+
+        .user-nav {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+        }
+
+        .user-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar-mini {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-avatar-mini img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info-text {
+            display: flex;
+            flex-direction: column;
+            text-align: right;
+        }
+
+        .user-info-text .user-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .user-info-text .user-role {
+            font-size: 0.74rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-logout {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 700;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 0.45rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-logout:hover {
+            background: #ef4444;
+            border-color: #ef4444;
+        }
+
+        /* CONTAINER */
         .container {
             flex: 1;
-            max-width: 1250px;
+            max-width: 1300px;
             width: 100%;
             margin: 0 auto;
             padding: 2.5rem 1.5rem;
         }
 
-        .welcome-banner {
-            background: linear-gradient(135deg, #090e17 0%, #1e293b 100%);
-            color: white;
+        /* BANNER DE BIENVENIDA */
+        .welcome-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             border-radius: var(--radius);
-            padding: 2.5rem 3rem;
+            padding: 2.25rem 2.5rem;
+            color: white;
             margin-bottom: 2.5rem;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
         }
 
-        .welcome-banner::after {
-            content: "\f501";
-            font-family: "Font Awesome 6 Free";
-            font-weight: 900;
+        .welcome-hero::after {
+            content: '';
             position: absolute;
-            right: -20px;
-            bottom: -40px;
-            font-size: 13rem;
-            color: rgba(255, 255, 255, 0.03);
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(37, 99, 235, 0.15);
+            border-radius: 50%;
             pointer-events: none;
         }
 
-        .badge-rol {
-            display: inline-block;
-            background: var(--primary);
-            color: white;
-            padding: 0.3rem 0.85rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
+        .welcome-text h1 {
+            font-size: 1.85rem;
             font-weight: 800;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            margin-bottom: 1rem;
+            margin-bottom: 0.4rem;
+            letter-spacing: -0.5px;
         }
 
-        .welcome-banner h1 {
-            font-size: 2rem;
-            font-weight: 900;
-            margin-bottom: 0.5rem;
-        }
-
-        .welcome-banner p {
-            font-size: 0.95rem;
+        .welcome-text p {
             color: #94a3b8;
+            font-size: 0.95rem;
             max-width: 650px;
             line-height: 1.5;
         }
 
-        .section-title {
+        .hero-badge-rol {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1.2rem;
+            border-radius: 30px;
             font-size: 0.85rem;
+            font-weight: 700;
+            color: #93c5fd;
+            backdrop-filter: blur(4px);
+        }
+
+        /* GRID DE MÓDULOS */
+        .section-title {
+            font-size: 1.25rem;
             font-weight: 800;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: var(--text-main);
             margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i {
+            color: var(--primary);
         }
 
         .modules-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.5rem;
         }
 
@@ -159,187 +265,392 @@ try {
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 1.75rem;
-            text-decoration: none;
-            color: var(--text-main);
             display: flex;
             flex-direction: column;
-            gap: 1rem;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+            justify-content: space-between;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
+            transition: all 0.25s ease;
+            position: relative;
+            overflow: hidden;
         }
 
         .module-card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
             border-color: #cbd5e1;
-            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        .module-card-top {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.25rem;
+            margin-bottom: 1.25rem;
         }
 
         .module-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.15rem;
-            color: white;
+            font-size: 1.45rem;
+            flex-shrink: 0;
         }
 
-        .icon-green { background: #10b981; }
-        .icon-blue { background: #2563eb; }
-        .icon-amber { background: #f59e0b; }
-        .icon-purple { background: #7c3aed; }
-        .icon-indigo { background: #4f46e5; }
+        .icon-blue   { background: #eff6ff; color: #2563eb; }
+        .icon-green  { background: #f0fdf4; color: #16a34a; }
+        .icon-purple { background: #f5f3ff; color: #7c3aed; }
+        .icon-amber  { background: #fefce8; color: #d97706; }
+        .icon-cyan   { background: #ecfeff; color: #0891b2; }
+        .icon-indigo { background: #eef2ff; color: #4f46e5; }
+        .icon-gold   { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #b45309; border: 1px solid #fcd34d; }
 
-        .module-info h3 {
-            font-size: 1.05rem;
+        .module-header-text h3 {
+            font-size: 1.12rem;
             font-weight: 800;
             color: var(--text-main);
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.35rem;
         }
 
-        .module-info p {
-            font-size: 0.85rem;
+        .module-header-text p {
+            font-size: 0.86rem;
             color: var(--text-muted);
-            line-height: 1.4;
+            line-height: 1.45;
         }
 
-        .btn-logout {
-            color: white;
-            text-decoration: none;
-            font-size: 0.85rem;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 0.4rem 1rem;
-            border-radius: 6px;
-            transition: background 0.2s;
+        .module-card-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+            margin-top: 0.5rem;
         }
-        .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.2);
+
+        .module-tag {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .tag-blue   { background: #eff6ff; color: #1d4ed8; }
+        .tag-green  { background: #f0fdf4; color: #15803d; }
+        .tag-purple { background: #f5f3ff; color: #6d28d9; }
+        .tag-amber  { background: #fefce8; color: #b45309; }
+        .tag-cyan   { background: #ecfeff; color: #0e7490; }
+        .tag-indigo { background: #eef2ff; color: #4338ca; }
+        .tag-gold   { background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; }
+
+        .module-link-arrow {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s;
+        }
+
+        .module-card:hover .module-link-arrow {
+            transform: translateX(4px);
+        }
+
+        /* TARJETA DESTACADA CUADRO DE HONOR */
+        .card-cuadro-honor {
+            border: 2px solid #fef08a;
+            background: linear-gradient(180deg, #ffffff 0%, #fffdf5 100%);
+            box-shadow: 0 6px 20px rgba(217, 119, 6, 0.08);
+        }
+
+        .card-cuadro-honor:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 12px 30px rgba(217, 119, 6, 0.18);
+        }
+
+        .card-cuadro-honor .module-link-arrow {
+            color: #b45309;
+        }
+
+        /* FOOTER */
+        .footer {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            border-top: 1px solid var(--border);
+            margin-top: auto;
         }
     </style>
 </head>
 <body>
+    <!-- NAVEGACIÓN SUPERIOR -->
     <nav class="navbar">
         <a href="index.php?action=dashboard" class="brand">
-            <div style="width:34px; height:34px; background:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                <img src="img/logo_inca.png" alt="Logo" style="width:28px; height:28px; object-fit:contain;" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=fff&color=0b1a30'">
-            </div>
+            <img src="img/logo_inca.png" alt="Logo INCA" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=fff&color=0b1a30'">
             <span>INCA NOTES</span>
         </a>
-        <div style="display:flex; align-items:center; gap:15px;">
-            <span style="color:#94a3b8; font-size:0.88rem;">
-                <i class="fa-solid fa-user-circle"></i> <?= htmlspecialchars($nombreUsuario) ?>
-            </span>
-            <a href="index.php?action=logout" class="btn-logout">Cerrar Sesión</a>
+        <div class="user-nav">
+            <div class="user-badge">
+                <div class="user-avatar-mini">
+                    <?php if (!empty($fotoPerfil) && file_exists(__DIR__ . '/../uploads/' . basename($fotoPerfil))): ?>
+                        <img src="uploads/<?= htmlspecialchars(basename($fotoPerfil)) ?>" alt="Avatar">
+                    <?php else: ?>
+                        <i class="fa-solid fa-user"></i>
+                    <?php endif; ?>
+                </div>
+                <div class="user-info-text">
+                    <span class="user-name"><?= htmlspecialchars($nombreUsuario) ?></span>
+                    <span class="user-role"><?= htmlspecialchars($rolUsuario) ?></span>
+                </div>
+            </div>
+            <a href="index.php?action=logout" class="btn-logout" title="Cerrar sesión segura">
+                <i class="fa-solid fa-power-off"></i> Salir
+            </a>
         </div>
     </nav>
 
+    <!-- CONTENEDOR PRINCIPAL -->
     <div class="container">
-        <?php if ($rolUsuario === 'ADMIN' || $rolUsuario === 'ADMINISTRADOR'): ?>
-            <!-- VISTA DE ADMINISTRADOR -->
-            <div class="welcome-banner">
-                <span class="badge-rol">Administrador</span>
+        <!-- BANNER DE BIENVENIDA -->
+        <div class="welcome-hero">
+            <div class="welcome-text">
                 <h1>¡Bienvenido, <?= htmlspecialchars($nombreUsuario) ?>!</h1>
-                <p>Panel de control directivo del Instituto Noé Canjura. Administra expedientes, matrícula escolar, roles institucionales y calificaciones.</p>
+                <p>Sistema Institucional de Gestión y Control de Evaluaciones Académicas del Instituto Nacional Noé Canjura (INCA).</p>
             </div>
+            <div>
+                <span class="hero-badge-rol">
+                    <i class="fa-solid fa-shield-halved"></i> Rol Activo: <?= htmlspecialchars($rolUsuario) ?>
+                </span>
+            </div>
+        </div>
 
-            <div class="section-title">Módulos Disponibles</div>
-            <div class="modules-grid">
+        <h2 class="section-title">
+            <i class="fa-solid fa-layer-group"></i> Módulos y Servicios del Sistema
+        </h2>
+
+        <!-- GRID DE TARJETAS / MÓDULOS SEPARADO POR ROL -->
+        <div class="modules-grid">
+
+            <?php if ($esAdmin): ?>
+                <!-- ================= TARJETAS EXCLUSIVAS DE ADMINISTRADOR ================= -->
                 <a href="index.php?action=gestion_notas" class="module-card">
-                    <div class="module-icon icon-green"><i class="fa-solid fa-list-check"></i></div>
-                    <div class="module-info">
-                        <h3>Control de Notas</h3>
-                        <p>Registrar, promediar (35%, 35%, 30%), editar expedientes y evaluar el rendimiento académico.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-blue">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Control de Alumnos y Notas</h3>
+                                <p>Registro de evaluaciones, matriz por sección, sustitución por recuperación y reportes oficiales.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-blue">Académico</span>
+                        <span class="module-link-arrow">Acceder <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
-                <a href="index.php?action=matricula" class="module-card">
-                    <div class="module-icon icon-blue"><i class="fa-solid fa-user-plus"></i></div>
-                    <div class="module-info">
-                        <h3>Matrícula Escolar</h3>
-                        <p>Inscribir nuevos estudiantes con NIE institucional, grado, sección y datos de encargado.</p>
+
+                <a href="index.php?action=cuadro_honor" class="module-card card-cuadro-honor">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-gold">
+                                <i class="fa-solid fa-trophy"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Cuadro de Honor y Ranking</h3>
+                                <p>Reconocimiento a la excelencia académica con Podio Olímpico (Top 3) y ranking de mejores promedios globales (≥ 8.0).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-gold"><i class="fa-solid fa-medal"></i> Excelencia</span>
+                        <span class="module-link-arrow">Ver Podio <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
+
+                <a href="index.php?action=gestion_docentes" class="module-card">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-purple">
+                                <i class="fa-solid fa-users-gear"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Gestión de Personal Docente</h3>
+                                <p>Asignación de asignaturas, grados académicos impartidos, escalafón y sección de orientación.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-purple">Administración</span>
+                        <span class="module-link-arrow">Gestionar <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
                 <a href="index.php?action=registro_usuarios" class="module-card">
-                    <div class="module-icon icon-indigo"><i class="fa-solid fa-user-gear"></i></div>
-                    <div class="module-info">
-                        <h3>Registro de Nuevas Cuentas</h3>
-                        <p>Crear accesos con credenciales y roles para estudiantes, docentes y administradores.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-indigo">
+                                <i class="fa-solid fa-user-shield"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Registro de Nuevas Cuentas</h3>
+                                <p>Crear accesos con credenciales y roles para estudiantes, docentes y administradores.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-indigo">Cuentas</span>
+                        <span class="module-link-arrow">Registrar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
+
                 <a href="index.php?action=usuarios_lista" class="module-card">
-                    <div class="module-icon icon-purple"><i class="fa-solid fa-address-book"></i></div>
-                    <div class="module-info">
-                        <h3>Directorio de Perfiles</h3>
-                        <p>Consultar y filtrar todas las cuentas registradas por categorías (Estudiantes, Docentes, Administradores).</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-cyan">
+                                <i class="fa-solid fa-address-book"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Directorio de Usuarios</h3>
+                                <p>Padrón institucional de alumnos, docentes y administradores con consulta rápida y fichas de contacto.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-cyan">Directorio</span>
+                        <span class="module-link-arrow">Consultar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
+
                 <a href="index.php?action=datos_personales" class="module-card">
-                    <div class="module-icon icon-amber"><i class="fa-solid fa-id-card"></i></div>
-                    <div class="module-info">
-                        <h3>Datos Personales</h3>
-                        <p>Actualizar información de contacto, fotografía de perfil y credenciales de acceso.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-amber">
+                                <i class="fa-solid fa-id-badge"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mi Perfil y Seguridad</h3>
+                                <p>Actualización de datos personales, teléfono, cambio de contraseña y actualización de foto de perfil.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-amber">Configuración</span>
+                        <span class="module-link-arrow">Editar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
-            </div>
 
-        <?php elseif ($rolUsuario === 'ESTUDIANTE'): ?>
-            <!-- VISTA DE ESTUDIANTE -->
-            <div class="welcome-banner">
-                <span class="badge-rol">Estudiante</span>
-                <h1>¡Bienvenido, <?= htmlspecialchars($nombreUsuario) ?>!</h1>
-                <p>Portal estudiantil del Instituto Noé Canjura. Consulta tus calificaciones oficiales por periodo y gestiona tus credenciales de acceso.</p>
-            </div>
-
-            <div class="section-title">Módulos Disponibles</div>
-            <div class="modules-grid">
+            <?php elseif ($esEstudiante): ?>
+                <!-- ================= TARJETAS EXCLUSIVAS DE ESTUDIANTE ================= -->
                 <a href="index.php?action=boleta_notas&estudiante_id=<?= $estudianteIdReal ?>" class="module-card">
-                    <div class="module-icon icon-green"><i class="fa-solid fa-star"></i></div>
-                    <div class="module-info">
-                        <h3>Mis Calificaciones</h3>
-                        <p>Consultar calificaciones trimestrales, promedios por materia y estado académico oficial.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-blue">
+                                <i class="fa-solid fa-file-lines"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mis Calificaciones</h3>
+                                <p>Consultar calificaciones trimestrales, promedios por materia y estado académico oficial.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-blue">Mis Calificaciones</span>
+                        <span class="module-link-arrow">Ver Boleta <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
+
                 <a href="index.php?action=datos_personales" class="module-card">
-                    <div class="module-icon icon-amber"><i class="fa-solid fa-id-card"></i></div>
-                    <div class="module-info">
-                        <h3>Datos Personales</h3>
-                        <p>Visualizar tu expediente académico y actualizar tu contraseña de acceso personal.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-amber">
+                                <i class="fa-solid fa-id-badge"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mi Perfil y Seguridad</h3>
+                                <p>Visualizar tu expediente académico y actualizar tu contraseña de acceso personal.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-amber">Configuración</span>
+                        <span class="module-link-arrow">Editar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
-            </div>
 
-        <?php else: ?>
-            <!-- VISTA DE DOCENTE -->
-            <div class="welcome-banner">
-                <span class="badge-rol">Docente</span>
-                <h1>¡Bienvenido, <?= htmlspecialchars($nombreUsuario) ?>!</h1>
-                <p>Módulo docente del Instituto Noé Canjura. Evalúa a tus estudiantes, registra calificaciones por periodo e imprime boletas oficiales.</p>
-            </div>
-
-            <div class="section-title">Módulos Disponibles</div>
-            <div class="modules-grid">
+            <?php else: ?>
+                <!-- ================= TARJETAS EXCLUSIVAS DE DOCENTE (SOLO 3 TARJETAS) ================= -->
                 <a href="index.php?action=gestion_notas" class="module-card">
-                    <div class="module-icon icon-green"><i class="fa-solid fa-list-check"></i></div>
-                    <div class="module-info">
-                        <h3>Control de Notas</h3>
-                        <p>Registrar, promediar (35%, 35%, 30%) las asignaturas evaluadas e imprimir boletas de calificaciones.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-blue">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Control de Alumnos y Notas</h3>
+                                <p>Registro de evaluaciones, matriz por sección, sustitución por recuperación y reportes oficiales.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-blue">Académico</span>
+                        <span class="module-link-arrow">Acceder <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
+
+                <a href="index.php?action=cuadro_honor" class="module-card card-cuadro-honor">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-gold">
+                                <i class="fa-solid fa-trophy"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Cuadro de Honor y Ranking</h3>
+                                <p>Reconocimiento a la excelencia académica con Podio Olímpico (Top 3) y ranking de mejores promedios globales (≥ 8.0).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-gold"><i class="fa-solid fa-medal"></i> Excelencia</span>
+                        <span class="module-link-arrow">Ver Podio <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
                 <a href="index.php?action=datos_personales" class="module-card">
-                    <div class="module-icon icon-amber"><i class="fa-solid fa-id-card"></i></div>
-                    <div class="module-info">
-                        <h3>Datos Personales</h3>
-                        <p>Visualizar credenciales asignadas y modificar contraseña de acceso al sistema.</p>
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-amber">
+                                <i class="fa-solid fa-id-badge"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mi Perfil y Seguridad</h3>
+                                <p>Actualización de datos personales, teléfono, cambio de contraseña y actualización de foto de perfil.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-amber">Configuración</span>
+                        <span class="module-link-arrow">Editar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
+
+        </div>
     </div>
 
     <!-- Pie de página integrado institucionalmente -->
     <?php 
     if (file_exists(__DIR__ . '/footer.php')) {
         include __DIR__ . '/footer.php';
+    } else {
+        echo '<footer class="footer"><p>&copy; ' . date('Y') . ' Instituto Nacional Noé Canjura (INCA). Sistema de Control Académico y Gestión de Notas.</p></footer>';
     }
     ?>
 </body>

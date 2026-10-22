@@ -283,7 +283,7 @@ $msg = $_GET['msg'] ?? '';
             font-size: 0.9rem;
         }
 
-        /* Estilos del Modal Flotante */
+        /* Modal Flotante Ampliado */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -303,7 +303,9 @@ $msg = $_GET['msg'] ?? '';
             background: #ffffff;
             border-radius: 16px;
             width: 100%;
-            max-width: 560px;
+            max-width: 660px;
+            max-height: 90vh;
+            overflow-y: auto;
             padding: 2.25rem;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             position: relative;
@@ -313,7 +315,7 @@ $msg = $_GET['msg'] ?? '';
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
             border-bottom: 1px solid var(--border);
             padding-bottom: 1rem;
         }
@@ -338,18 +340,34 @@ $msg = $_GET['msg'] ?? '';
             cursor: pointer;
         }
 
+        .section-separator-modal {
+            grid-column: span 2;
+            font-size: 0.82rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 0.35rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .form-grid-modal {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1.25rem;
-            margin-bottom: 1.25rem;
+            gap: 1rem;
+            margin-bottom: 0.85rem;
         }
 
         .form-group-modal {
             display: flex;
             flex-direction: column;
             gap: 0.4rem;
-            margin-bottom: 1.25rem;
+            margin-bottom: 0.85rem;
         }
         .form-group-modal.full {
             grid-column: span 2;
@@ -361,7 +379,9 @@ $msg = $_GET['msg'] ?? '';
             color: #334155;
         }
 
-        .form-group-modal input, .form-group-modal select {
+        .form-group-modal input, 
+        .form-group-modal select,
+        .form-group-modal textarea {
             width: 100%;
             padding: 0.75rem 1rem;
             border: 1px solid var(--border);
@@ -371,11 +391,18 @@ $msg = $_GET['msg'] ?? '';
             color: var(--text-main);
         }
 
+        .form-group-modal textarea {
+            resize: vertical;
+            min-height: 65px;
+        }
+
         .modal-footer {
             display: flex;
             justify-content: flex-end;
             gap: 10px;
             margin-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            padding-top: 1.25rem;
         }
 
         .btn-modal-cancel {
@@ -417,7 +444,7 @@ $msg = $_GET['msg'] ?? '';
             <?php if (!empty($msg)): ?>
                 <div style="background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
                     <i class="fa-solid fa-circle-check"></i>
-                    <span>¡Operación realizada con éxito en el sistema!</span>
+                    <span>¡Perfil institucional actualizado con éxito!</span>
                 </div>
             <?php endif; ?>
 
@@ -464,6 +491,9 @@ $msg = $_GET['msg'] ?? '';
                                 $claseRol = 'rol-estudiante';
                                 if ($rol === 'DOCENTE') $claseRol = 'rol-docente';
                                 if ($rol === 'ADMIN' || $rol === 'ADMINISTRADOR') $claseRol = 'rol-admin';
+
+                                // Extraer identificador visible (NIE para estudiantes o DUI/Escalafón)
+                                $identificador = !empty($u['nie']) ? $u['nie'] : (!empty($u['username']) ? $u['username'] : '');
                             ?>
                                 <tr data-rol="<?= strtolower($rol) ?>">
                                     <td>
@@ -486,6 +516,10 @@ $msg = $_GET['msg'] ?? '';
                                     <td>
                                         <?php if (!empty($u['nie'])): ?>
                                             <span class="tag-doc">NIE: <?= htmlspecialchars($u['nie']) ?></span>
+                                        <?php elseif (!empty($u['escalafon'])): ?>
+                                            <span class="tag-doc">ESC: <?= htmlspecialchars($u['escalafon']) ?></span>
+                                        <?php elseif (!empty($u['dui'])): ?>
+                                            <span class="tag-doc">DUI: <?= htmlspecialchars($u['dui']) ?></span>
                                         <?php else: ?>
                                             <span style="color:var(--text-muted); font-size:0.82rem;">-- Sin asignar --</span>
                                         <?php endif; ?>
@@ -493,17 +527,29 @@ $msg = $_GET['msg'] ?? '';
                                     <td><?= htmlspecialchars($u['telefono'] ?? '--') ?></td>
                                     <td><?= htmlspecialchars($u['genero'] ?? 'Masculino') ?></td>
                                     <td>
-                                        <button type="button" class="btn-action-icon btn-edit" title="Editar perfil" onclick="abrirModalEditar(
-                                            '<?= $u['id'] ?>',
-                                            '<?= htmlspecialchars($u['nombre'] ?? '', ENT_QUOTES) ?>',
-                                            '<?= htmlspecialchars($u['apellido'] ?? '', ENT_QUOTES) ?>',
-                                            '<?= htmlspecialchars($u['telefono'] ?? '', ENT_QUOTES) ?>',
-                                            '<?= htmlspecialchars($u['genero'] ?? 'Masculino', ENT_QUOTES) ?>',
-                                            '<?= htmlspecialchars($u['correo'] ?? $u['username'] ?? '', ENT_QUOTES) ?>'
-                                        )">
+                                        <button type="button" class="btn-action-icon btn-edit" title="Editar perfil completo"
+                                            data-id="<?= $u['id'] ?>"
+                                            data-nombre="<?= htmlspecialchars($u['nombre'] ?? '', ENT_QUOTES) ?>"
+                                            data-apellido="<?= htmlspecialchars($u['apellido'] ?? '', ENT_QUOTES) ?>"
+                                            data-correo="<?= htmlspecialchars($u['correo'] ?? $u['username'] ?? '', ENT_QUOTES) ?>"
+                                            data-rol="<?= htmlspecialchars($rol, ENT_QUOTES) ?>"
+                                            data-telefono="<?= htmlspecialchars($u['telefono'] ?? '', ENT_QUOTES) ?>"
+                                            data-genero="<?= htmlspecialchars($u['genero'] ?? 'Masculino', ENT_QUOTES) ?>"
+                                            data-nie="<?= htmlspecialchars($u['nie'] ?? '', ENT_QUOTES) ?>"
+                                            data-grado="<?= htmlspecialchars($u['grado'] ?? '1° Año Bachillerato', ENT_QUOTES) ?>"
+                                            data-seccion="<?= htmlspecialchars($u['seccion'] ?? 'Sección A', ENT_QUOTES) ?>"
+                                            data-encargado="<?= htmlspecialchars($u['encargado'] ?? '', ENT_QUOTES) ?>"
+                                            data-dui-encargado="<?= htmlspecialchars($u['dui_encargado'] ?? '', ENT_QUOTES) ?>"
+                                            data-direccion="<?= htmlspecialchars($u['direccion'] ?? '', ENT_QUOTES) ?>"
+                                            data-dui="<?= htmlspecialchars($u['dui'] ?? '', ENT_QUOTES) ?>"
+                                            data-escalafon="<?= htmlspecialchars($u['escalafon'] ?? '', ENT_QUOTES) ?>"
+                                            data-cargo="<?= htmlspecialchars($u['cargo'] ?? 'Administrador', ENT_QUOTES) ?>"
+                                            data-materias="<?= htmlspecialchars($u['materias_imparte'] ?? '', ENT_QUOTES) ?>"
+                                            data-orientacion="<?= htmlspecialchars($u['grado_orientacion'] ?? 'Ninguno', ENT_QUOTES) ?>"
+                                            onclick="abrirModalEditarConDatos(this)">
                                             <i class="fa-solid fa-pen"></i>
                                         </button>
-                                        <a href="index.php?action=eliminar_usuario&id=<?= $u['id'] ?>" class="btn-action-icon btn-delete" title="Eliminar registro" onclick="return confirm('¿Estás seguro de eliminar permanentemente este perfil?');">
+                                        <a href="index.php?action=eliminar_usuario&id=<?= $u['id'] ?>" class="btn-action-icon btn-delete" title="Eliminar registro" onclick="return confirm('¿Estás seguro de eliminar permanentemente este perfil y su expediente?');">
                                             <i class="fa-solid fa-trash"></i>
                                         </a>
                                     </td>
@@ -520,7 +566,7 @@ $msg = $_GET['msg'] ?? '';
         </div>
     </div>
 
-    <!-- MODAL DE EDICIÓN -->
+    <!-- MODAL DE EDICIÓN CON TODOS LOS CAMPOS -->
     <div class="modal-overlay" id="modalEditar">
         <div class="modal-card">
             <div class="modal-header">
@@ -533,6 +579,12 @@ $msg = $_GET['msg'] ?? '';
 
             <form action="index.php?action=actualizar_usuario_directorio" method="POST">
                 <input type="hidden" id="edit_id" name="id">
+                <input type="hidden" id="edit_rol_hidden" name="rol">
+
+                <!-- 1. DATOS GENERALES -->
+                <div class="section-separator-modal">
+                    <i class="fa-solid fa-user"></i> Datos Personales y de Contacto
+                </div>
 
                 <div class="form-grid-modal">
                     <div class="form-group-modal">
@@ -547,9 +599,16 @@ $msg = $_GET['msg'] ?? '';
 
                 <div class="form-grid-modal">
                     <div class="form-group-modal">
-                        <label for="edit_telefono">Teléfono (0000-0000)</label>
-                        <input type="text" id="edit_telefono" name="telefono" placeholder="7896-5202">
+                        <label for="edit_correo">Correo Institucional</label>
+                        <input type="text" id="edit_correo" name="correo" required>
                     </div>
+                    <div class="form-group-modal">
+                        <label for="edit_telefono">Teléfono de Contacto</label>
+                        <input type="text" id="edit_telefono" name="telefono" placeholder="7123-4567" maxlength="9">
+                    </div>
+                </div>
+
+                <div class="form-grid-modal">
                     <div class="form-group-modal">
                         <label for="edit_genero">Género</label>
                         <select id="edit_genero" name="genero">
@@ -557,10 +616,139 @@ $msg = $_GET['msg'] ?? '';
                             <option value="Femenino">Femenino</option>
                         </select>
                     </div>
+                    <div class="form-group-modal">
+                        <label for="edit_rol_display">Rol Institucional</label>
+                        <input type="text" id="edit_rol_display" readonly style="background:#f1f5f9; color:#475569; font-weight:700;">
+                    </div>
+                </div>
+
+                <!-- 2. CAMPOS ESPECÍFICOS DE ESTUDIANTE -->
+                <div id="bloqueCamposEstudiante" style="display: none;">
+                    <div class="section-separator-modal">
+                        <i class="fa-solid fa-graduation-cap"></i> Expediente de Matrícula (Estudiante)
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_nie">NIE / Carné</label>
+                            <input type="text" id="edit_nie" name="nie">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_grado">Grado Escolar</label>
+                            <select id="edit_grado" name="grado">
+                                <option value="1° Grado">1° Grado</option>
+                                <option value="2° Grado">2° Grado</option>
+                                <option value="3° Grado">3° Grado</option>
+                                <option value="4° Grado">4° Grado</option>
+                                <option value="5° Grado">5° Grado</option>
+                                <option value="6° Grado">6° Grado</option>
+                                <option value="7° Grado">7° Grado</option>
+                                <option value="8° Grado">8° Grado</option>
+                                <option value="9° Grado">9° Grado</option>
+                                <option value="1° Año Bachillerato">1° Año Bachillerato</option>
+                                <option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_seccion">Sección Asignada</label>
+                            <select id="edit_seccion" name="seccion">
+                                <option value="Sección A">Sección A</option>
+                                <option value="Sección B">Sección B</option>
+                                <option value="Sección C">Sección C</option>
+                            </select>
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_encargado">Nombre del Encargado / Tutor</label>
+                            <input type="text" id="edit_encargado" name="encargado">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_dui_encargado">DUI del Encargado</label>
+                            <input type="text" id="edit_dui_encargado" name="dui_encargado" placeholder="00000000-0" maxlength="10">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_direccion">Dirección Residencial</label>
+                            <input type="text" id="edit_direccion" name="direccion">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. CAMPOS ESPECÍFICOS DE DOCENTE -->
+                <div id="bloqueCamposDocente" style="display: none;">
+                    <div class="section-separator-modal">
+                        <i class="fa-solid fa-chalkboard-user"></i> Asignaciones y Registro Docente
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_dui_docente">Número de DUI</label>
+                            <input type="text" id="edit_dui_docente" name="dui" placeholder="00000000-0" maxlength="10">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_escalafon">Número de Escalafón</label>
+                            <input type="text" id="edit_escalafon" name="escalafon" placeholder="ESC-00000" maxlength="9">
+                        </div>
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_materias">Materias que imparte</label>
+                            <input type="text" id="edit_materias" name="materias_imparte" placeholder="Ej: Matemática, Lenguaje">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_orientacion">Grado de Orientación</label>
+                            <select id="edit_orientacion" name="grado_orientacion">
+                                <option value="Ninguno">Ninguno</option>
+                                <option value="1° Grado">1° Grado</option>
+                                <option value="2° Grado">2° Grado</option>
+                                <option value="3° Grado">3° Grado</option>
+                                <option value="4° Grado">4° Grado</option>
+                                <option value="5° Grado">5° Grado</option>
+                                <option value="6° Grado">6° Grado</option>
+                                <option value="7° Grado">7° Grado</option>
+                                <option value="8° Grado">8° Grado</option>
+                                <option value="9° Grado">9° Grado</option>
+                                <option value="1° Año Bachillerato">1° Año Bachillerato</option>
+                                <option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. CAMPOS ESPECÍFICOS DE ADMINISTRADOR -->
+                <div id="bloqueCamposAdmin" style="display: none;">
+                    <div class="section-separator-modal">
+                        <i class="fa-solid fa-shield-halved"></i> Datos Administrativos
+                    </div>
+
+                    <div class="form-grid-modal">
+                        <div class="form-group-modal">
+                            <label for="edit_dui_admin">Número de DUI</label>
+                            <input type="text" id="edit_dui_admin" name="dui_admin" placeholder="00000000-0" maxlength="10">
+                        </div>
+                        <div class="form-group-modal">
+                            <label for="edit_cargo">Cargo Institucional</label>
+                            <select id="edit_cargo" name="cargo">
+                                <option value="Directora">Directora</option>
+                                <option value="Registro academico">Registro académico</option>
+                                <option value="Administrador">Administrador</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. SEGURIDAD Y CONTRASEÑA -->
+                <div class="section-separator-modal">
+                    <i class="fa-solid fa-lock"></i> Credenciales de Acceso
                 </div>
 
                 <div class="form-group-modal full">
-                    <label for="edit_password">Nueva Contraseña <span style="color:var(--text-muted); font-weight:normal;">(Dejar en blanco para no cambiarla)</span></label>
+                    <label for="edit_password">Nueva Contraseña <span style="color:var(--text-muted); font-weight:normal;">(Dejar en blanco para conservar la actual)</span></label>
                     <input type="password" id="edit_password" name="nueva_password" placeholder="••••••••">
                 </div>
 
@@ -577,11 +765,8 @@ $msg = $_GET['msg'] ?? '';
 
         function filtrarPorRol(rol, btn) {
             rolSeleccionado = rol;
-            
-            // Actualizar clases activas en los botones
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-
             aplicarFiltros();
         }
 
@@ -614,15 +799,49 @@ $msg = $_GET['msg'] ?? '';
             }
         }
 
-        function abrirModalEditar(id, nombre, apellido, telefono, genero, correo) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_nombre').value = nombre;
-            document.getElementById('edit_apellido').value = apellido;
-            document.getElementById('edit_telefono').value = telefono;
-            document.getElementById('edit_genero').value = genero || 'Masculino';
+        function abrirModalEditarConDatos(btn) {
+            const d = btn.dataset;
+
+            document.getElementById('edit_id').value = d.id;
+            document.getElementById('edit_rol_hidden').value = d.rol;
+            document.getElementById('edit_rol_display').value = d.rol;
+            document.getElementById('edit_nombre').value = d.nombre;
+            document.getElementById('edit_apellido').value = d.apellido;
+            document.getElementById('edit_correo').value = d.correo;
+            document.getElementById('edit_telefono').value = d.telefono;
+            document.getElementById('edit_genero').value = d.genero || 'Masculino';
             document.getElementById('edit_password').value = '';
-            document.getElementById('modalSubCorreo').textContent = correo || 'Usuario institucional';
-            
+            document.getElementById('modalSubCorreo').textContent = d.correo || 'Usuario institucional';
+
+            const rolUpper = (d.rol || '').toUpperCase();
+            const bEst = document.getElementById('bloqueCamposEstudiante');
+            const bDoc = document.getElementById('bloqueCamposDocente');
+            const bAdm = document.getElementById('bloqueCamposAdmin');
+
+            bEst.style.display = 'none';
+            bDoc.style.display = 'none';
+            bAdm.style.display = 'none';
+
+            if (rolUpper === 'ESTUDIANTE') {
+                bEst.style.display = 'block';
+                document.getElementById('edit_nie').value = d.nie;
+                document.getElementById('edit_grado').value = d.grado || '1° Año Bachillerato';
+                document.getElementById('edit_seccion').value = d.seccion || 'Sección A';
+                document.getElementById('edit_encargado').value = d.encargado;
+                document.getElementById('edit_dui_encargado').value = d.duiEncargado;
+                document.getElementById('edit_direccion').value = d.direccion;
+            } else if (rolUpper === 'DOCENTE') {
+                bDoc.style.display = 'block';
+                document.getElementById('edit_dui_docente').value = d.dui;
+                document.getElementById('edit_escalafon').value = d.escalafon;
+                document.getElementById('edit_materias').value = d.materias;
+                document.getElementById('edit_orientacion').value = d.orientacion || 'Ninguno';
+            } else {
+                bAdm.style.display = 'block';
+                document.getElementById('edit_dui_admin').value = d.dui;
+                document.getElementById('edit_cargo').value = d.cargo || 'Administrador';
+            }
+
             document.getElementById('modalEditar').style.display = 'flex';
         }
 

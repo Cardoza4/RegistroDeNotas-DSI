@@ -1,5 +1,4 @@
 <?php
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -43,7 +42,7 @@ $nie = !empty($est['nie']) && $est['nie'] !== '---' ? $est['nie'] : '---';
 $grado = !empty($est['grado']) ? $est['grado'] : '9° Grado';
 $seccion = !empty($est['seccion']) ? $est['seccion'] : 'Sección A';
 
-// Regla dinámica: Bachillerato (1° o 2° Año) usa 4 periodos; 1° a 9° Grado usan 3 periodos
+// Regla MINED: Bachillerato = 4 Periodos; Educación Básica (1° a 9° Grado) = 3 Periodos
 $esBachillerato = (stripos($grado, 'bachillerato') !== false);
 $totalPeriodos = $esBachillerato ? 4 : 3;
 
@@ -70,7 +69,7 @@ if (!empty($fuenteNotas) && is_array($fuenteNotas)) {
             $numPeriodo = intval($matches[1]);
         }
 
-        if (!empty($mat) && $numPeriodo > 0) {
+        if (!empty($mat) && $numPeriodo > 0 && $numPeriodo <= $totalPeriodos) {
             $calificacionesMap[$mat][$numPeriodo] = $promVal;
         }
     }
@@ -105,61 +104,54 @@ $materiasEnRecuperacion = [];
         .btn-back:hover { background: #f1f5f9; }
         .btn-print { background: #0070f3; color: white; box-shadow: 0 4px 10px rgba(0, 112, 243, 0.2); }
         .btn-print:hover { background: #0060df; }
-        .header-institucional { display: flex; align-items: center; justify-content: space-between; padding-bottom: 2rem; border-bottom: 1px solid var(--border-card); margin-bottom: 2rem; }
-        .inst-left { display: flex; align-items: center; gap: 1.5rem; }
-        .logo-circle { width: 68px; height: 68px; border-radius: 50%; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .header-institucional { display: flex; align-items: center; justify-content: space-between; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-card); margin-bottom: 1.5rem; }
+        .inst-left { display: flex; align-items: center; gap: 1.25rem; }
+        .logo-circle { width: 62px; height: 62px; border-radius: 50%; background: #ffffff; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
         .logo-circle img { width: 100%; height: 100%; object-fit: contain; }
-        .inst-titles h1 { font-size: 1.5rem; font-weight: 900; color: #0b1a30; letter-spacing: 0.3px; }
-        .inst-titles p { font-size: 0.95rem; color: var(--text-muted); margin-top: 2px; }
-        .badge-anio { background: #f8fafc; border: 1px solid var(--border-card); padding: 0.55rem 1.4rem; border-radius: 25px; font-size: 0.88rem; font-weight: 800; color: #1e293b; }
-        .student-details-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 14px; padding: 1.75rem 2.2rem; display: grid; grid-template-columns: 2.2fr 1.2fr 1fr; row-gap: 1.5rem; column-gap: 2rem; margin-bottom: 2rem; }
-        .field-box span { display: block; font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.4rem; }
-        .field-box p { font-size: 1.15rem; font-weight: 800; color: #0f172a; }
-        .table-wrap { border: 1px solid var(--border-card); border-radius: 12px; overflow: hidden; margin-bottom: 2rem; }
+        .inst-titles h1 { font-size: 1.4rem; font-weight: 900; color: #0b1a30; letter-spacing: 0.3px; }
+        .inst-titles p { font-size: 0.9rem; color: var(--text-muted); margin-top: 2px; }
+        .badge-anio { background: #f8fafc; border: 1px solid var(--border-card); padding: 0.5rem 1.2rem; border-radius: 25px; font-size: 0.85rem; font-weight: 800; color: #1e293b; }
+        .student-details-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 12px; padding: 1.25rem 1.75rem; display: grid; grid-template-columns: 2.2fr 1.2fr 1fr; row-gap: 1rem; column-gap: 1.5rem; margin-bottom: 1.5rem; }
+        .field-box span { display: block; font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.3rem; }
+        .field-box p { font-size: 1.05rem; font-weight: 800; color: #0f172a; }
+        .table-wrap { border: 1px solid var(--border-card); border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem; }
         table { width: 100%; border-collapse: collapse; text-align: center; }
-        th { background-color: #ffffff; color: #475569; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; padding: 1.25rem 1rem; border-bottom: 1px solid var(--border-card); }
-        th.th-left { text-align: left; padding-left: 1.8rem; width: 34%; }
-        td { padding: 1.1rem 1rem; border-bottom: 1px solid #f1f5f9; font-size: 0.92rem; color: #475569; }
-        .td-materia { text-align: left; padding-left: 1.8rem !important; font-weight: 700; color: #1e293b; }
+        th { background-color: #ffffff; color: #475569; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; padding: 1rem 0.75rem; border-bottom: 1px solid var(--border-card); }
+        th.th-left { text-align: left; padding-left: 1.5rem; width: 34%; }
+        td { padding: 0.85rem 0.75rem; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; color: #475569; }
+        .td-materia { text-align: left; padding-left: 1.5rem !important; font-weight: 700; color: #1e293b; }
         .td-final { font-weight: 800; color: #0f172a; }
-        .badge-status { display: inline-block; padding: 4px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+        .badge-status { display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
         .badge-reprobado { background-color: #fde8e8; color: #c81e1e; }
         .badge-aprobado { background-color: #def7ec; color: #03543f; }
         .badge-pendiente { background-color: #f1f5f9; color: #64748b; }
-        .row-promedio-global td { background-color: #ffffff; border-top: 1px solid var(--border-card); border-bottom: none; padding: 1.3rem 1rem; }
-        .label-promedio-global { text-align: right; font-size: 0.82rem; font-weight: 800; text-transform: uppercase; color: #1e293b; letter-spacing: 0.6px; padding-right: 1.8rem !important; }
-        .val-promedio-global { font-size: 1.15rem; font-weight: 800; color: #0284c7; }
-        .alert-recuperacion { background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 1.5rem 2rem; margin-bottom: 2rem; }
-        .alert-recuperacion-header { display: flex; align-items: center; gap: 10px; color: #b91c1c; font-size: 1.05rem; font-weight: 800; margin-bottom: 0.6rem; }
-        .alert-recuperacion p { color: #7f1d1d; font-size: 0.9rem; margin-bottom: 0.75rem; }
-        .recuperacion-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-        .recuperacion-tag { background: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; padding: 5px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; }
-        .global-summary-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 12px; padding: 1.5rem 2rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 3.5rem; }
-        .summary-col span { display: block; font-size: 0.72rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.4rem; }
-        .summary-col .val-score { font-size: 1.45rem; font-weight: 800; color: #0284c7; }
-        .summary-col .val-text { font-size: 1.25rem; font-weight: 800; color: var(--text-dark); }
-        .summary-col .val-status { font-size: 1.25rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; }
+        .row-promedio-global td { background-color: #ffffff; border-top: 1px solid var(--border-card); border-bottom: none; padding: 1.1rem 0.75rem; }
+        .label-promedio-global { text-align: right; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; color: #1e293b; letter-spacing: 0.6px; padding-right: 1.5rem !important; }
+        .val-promedio-global { font-size: 1.1rem; font-weight: 800; color: #0284c7; }
+        .alert-recuperacion { background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; }
+        .alert-recuperacion-header { display: flex; align-items: center; gap: 8px; color: #b91c1c; font-size: 0.95rem; font-weight: 800; margin-bottom: 0.4rem; }
+        .alert-recuperacion p { color: #7f1d1d; font-size: 0.85rem; margin-bottom: 0.5rem; }
+        .recuperacion-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .recuperacion-tag { background: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+        .global-summary-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 12px; padding: 1.25rem 1.75rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
+        .summary-col span { display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.3rem; }
+        .summary-col .val-score { font-size: 1.35rem; font-weight: 800; color: #0284c7; }
+        .summary-col .val-text { font-size: 1.15rem; font-weight: 800; color: var(--text-dark); }
+        .summary-col .val-status { font-size: 1.15rem; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; }
         .status-aprobado     { color: #16a34a; }
         .status-recuperacion { color: #dc2626; }
         .status-curso        { color: #eab308; }
-        .signatures-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; padding-top: 1rem; }
+        .signatures-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; padding-top: 0.5rem; }
         .sig-block { text-align: center; }
-        .sig-divider { border-top: 1px solid #94a3b8; margin-bottom: 0.6rem; }
-        .sig-block h4 { font-size: 0.95rem; font-weight: 800; color: var(--text-dark); }
-        .sig-block p { font-size: 0.82rem; color: var(--text-muted); }
-        
-        @media (max-width: 768px) {
-            .header-institucional { flex-direction: column; align-items: flex-start; gap: 1rem; }
-            .student-details-card { grid-template-columns: 1fr; }
-            .global-summary-card { grid-template-columns: 1fr; }
-            .signatures-row { grid-template-columns: 1fr; gap: 2.5rem; }
-        }
+        .sig-divider { border-top: 1px solid #94a3b8; margin-bottom: 0.5rem; }
+        .sig-block h4 { font-size: 0.9rem; font-weight: 800; color: var(--text-dark); }
+        .sig-block p { font-size: 0.8rem; color: var(--text-muted); }
 
-        /* DISEÑO ESTRICTO PARA UNA SOLA PÁGINA EN IMPRESIÓN */
+        /* REGLAS ESTRICTAS DE IMPRESIÓN (1 PÁGINA CARTA) */
         @media print {
             @page {
                 size: letter portrait;
-                margin: 0.3cm;
+                margin: 10mm;
             }
             body {
                 background: white !important;
@@ -176,74 +168,74 @@ $materiasEnRecuperacion = [];
                 margin: 0 !important;
                 page-break-inside: avoid !important;
             }
-            .top-action-bar, .btn-action {
+            .top-action-bar {
                 display: none !important;
             }
             .header-institucional {
-                padding-bottom: 0.35rem !important;
-                margin-bottom: 0.35rem !important;
+                padding-bottom: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
             }
             .logo-circle {
-                width: 40px !important;
-                height: 40px !important;
+                width: 44px !important;
+                height: 44px !important;
             }
             .inst-titles h1 {
-                font-size: 1rem !important;
+                font-size: 1.05rem !important;
             }
             .inst-titles p {
                 font-size: 0.75rem !important;
             }
             .badge-anio {
-                padding: 0.2rem 0.8rem !important;
-                font-size: 0.7rem !important;
+                padding: 0.25rem 0.8rem !important;
+                font-size: 0.75rem !important;
             }
             .student-details-card {
-                padding: 0.35rem 0.6rem !important;
-                margin-bottom: 0.35rem !important;
-                row-gap: 0.3rem !important;
+                padding: 0.45rem 0.75rem !important;
+                margin-bottom: 0.5rem !important;
+                row-gap: 0.35rem !important;
             }
             .field-box span {
                 font-size: 0.6rem !important;
-                margin-bottom: 0.05rem !important;
+                margin-bottom: 0.08rem !important;
             }
             .field-box p {
                 font-size: 0.85rem !important;
             }
             .table-wrap {
-                margin-bottom: 0.35rem !important;
+                margin-bottom: 0.5rem !important;
                 border-radius: 6px !important;
             }
             th {
-                padding: 0.35rem 0.3rem !important;
+                padding: 0.4rem 0.35rem !important;
                 font-size: 0.65rem !important;
             }
             td {
-                padding: 0.3rem 0.3rem !important;
+                padding: 0.35rem 0.35rem !important;
                 font-size: 0.75rem !important;
             }
             .alert-recuperacion {
-                padding: 0.35rem 0.6rem !important;
-                margin-bottom: 0.35rem !important;
+                padding: 0.4rem 0.75rem !important;
+                margin-bottom: 0.45rem !important;
             }
             .alert-recuperacion p {
                 font-size: 0.75rem !important;
-                margin-bottom: 0.3rem !important;
+                margin-bottom: 0.25rem !important;
             }
             .global-summary-card {
-                padding: 0.35rem 0.6rem !important;
-                margin-bottom: 0.6rem !important;
-                gap: 0.5rem !important;
+                padding: 0.45rem 0.75rem !important;
+                margin-bottom: 0.8rem !important;
+                gap: 0.6rem !important;
             }
             .summary-col span {
                 font-size: 0.6rem !important;
-                margin-bottom: 0.1rem !important;
+                margin-bottom: 0.08rem !important;
             }
             .summary-col .val-score, .summary-col .val-text, .summary-col .val-status {
                 font-size: 0.9rem !important;
             }
             .signatures-row {
-                padding-top: 0.1rem !important;
-                gap: 2rem !important;
+                padding-top: 0.5rem !important;
+                gap: 2.5rem !important;
             }
             .sig-block h4 {
                 font-size: 0.75rem !important;
@@ -272,7 +264,7 @@ $materiasEnRecuperacion = [];
                     <img src="img/logo_inca.png" alt="Escudo INCA" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=0b1a30&color=fff'">
                 </div>
                 <div class="inst-titles">
-                    <h1>INSTITUTO NACIONAL DR. NOÉ CANJURA</h1>
+                    <h1>INSTITUTO NOÉ CANJURA</h1>
                     <p>Sistema Integrado de Calificaciones Oficiales</p>
                 </div>
             </div>
@@ -442,7 +434,7 @@ $materiasEnRecuperacion = [];
             <div class="sig-block">
                 <div class="sig-divider"></div>
                 <h4>Dirección Institucional</h4>
-                <p>Instituto Nacional Dr. Noé Canjura</p>
+                <p>Instituto Noé Canjura</p>
             </div>
         </div>
     </div>

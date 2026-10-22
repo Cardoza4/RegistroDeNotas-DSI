@@ -7,13 +7,14 @@ if (isset($_SESSION['usuario_id'])) {
     exit;
 }
 $errorMsg = $error ?? '';
+$timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>INCA NOTES - Instituto Nacional Noé Canjura</title>
+    <title>INCA NOTES - Instituto Noé Canjura</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -182,6 +183,28 @@ $errorMsg = $error ?? '';
             gap: 8px;
         }
 
+        /* PBI-54: Alerta institucional por inactividad */
+        .alert-timeout {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            color: #92400e;
+            padding: 0.85rem 1rem;
+            border-radius: 8px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            line-height: 1.45;
+        }
+
+        .alert-timeout i {
+            color: #d97706;
+            font-size: 1.05rem;
+            margin-top: 2px;
+        }
+
         .form-group {
             margin-bottom: 1.25rem;
             display: flex;
@@ -282,14 +305,14 @@ $errorMsg = $error ?? '';
                 <img src="img/logo_inca.png" alt="Logo INCA" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=fff&color=0b1a30'">
             </div>
             <div class="nav-titles">
-                <h2>INSTITUTO NACIONAL NOÉ CANJURA</h2>
+                <h2>INSTITUTO NOÉ CANJURA</h2>
                 <p>INCA NOTES — PLATAFORMA DE GESTIÓN ACADÉMICA</p>
             </div>
         </div>
         <div class="social-icons">
-            <a href="#" class="social-icon-btn" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-            <a href="#" class="social-icon-btn" title="TikTok"><i class="fa-brands fa-tiktok"></i></a>
-            <a href="#" class="social-icon-btn" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+            <a href="https://www.facebook.com/institutonoecanjura.priv" class="social-icon-btn" title="Facebook" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-facebook-f"></i></a>
+            <a href="https://www.tiktok.com/@noe.canjura?_r=1&_t=ZS-99Y7F1ZrQfA" class="social-icon-btn" title="TikTok" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-tiktok"></i></a>
+            <a href="https://www.instagram.com/noe.canjura/" class="social-icon-btn" title="Instagram" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-instagram"></i></a>
         </div>
     </header>
 
@@ -303,6 +326,14 @@ $errorMsg = $error ?? '';
                 <h1>Iniciar Sesión</h1>
                 <p>Ingresa tus credenciales para acceder al sistema institucional</p>
             </div>
+
+            <!-- PBI-54 Criterio 3: Alerta institucional visible tras expulsión por inactividad -->
+            <?php if ($timeoutActivo): ?>
+                <div class="alert-timeout">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Tu sesión ha finalizado por motivos de seguridad tras 5 minutos de inactividad. Por favor, inicia sesión nuevamente.</span>
+                </div>
+            <?php endif; ?>
 
             <?php if (!empty($errorMsg)): ?>
                 <div class="alert-error">

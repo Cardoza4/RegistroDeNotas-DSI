@@ -6,8 +6,14 @@ if (!isset($_SESSION['usuario_id'])) {
     header('Location: index.php?action=login');
     exit;
 }
+
+$esPrimerInicio = !empty($_SESSION['primer_login']) || (isset($_GET['primer_inicio']) && $_GET['primer_inicio'] == '1');
+
 $rolUsuario = strtoupper($_SESSION['rol'] ?? 'DOCENTE');
 $isAdmin = ($rolUsuario === 'ADMIN' || $rolUsuario === 'ADMINISTRADOR');
+$isDocente = ($rolUsuario === 'DOCENTE');
+$isEstudiante = ($rolUsuario === 'ESTUDIANTE');
+
 $data = $usuarioData ?? [];
 $nombreCompleto = trim(($data['nombre'] ?? '') . ' ' . ($data['apellido'] ?? '')) ?: ($_SESSION['nombre'] ?? 'Usuario');
 $correoUser = $data['correo'] ?? $data['username'] ?? $_SESSION['usuario'] ?? '';
@@ -15,6 +21,12 @@ $telefonoUser = $data['telefono'] ?? '';
 $direccionUser = $data['direccion'] ?? '';
 $fotoUser = trim($data['foto'] ?? $_SESSION['foto'] ?? '');
 $msg = $_GET['msg'] ?? '';
+
+// Si guardó con éxito la contraseña y estaba en primer inicio, desactiva la bandera
+if (!empty($msg) && $msg === 'exito') {
+    unset($_SESSION['primer_login']);
+    $esPrimerInicio = false;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -161,6 +173,21 @@ $msg = $_GET['msg'] ?? '';
             margin-top: 0.4rem;
         }
 
+        .alert-primer-inicio {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 1rem 1.25rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            line-height: 1.45;
+        }
+
         .alert-success {
             background: #d1fae5;
             border: 1px solid #a7f3d0;
@@ -197,6 +224,53 @@ $msg = $_GET['msg'] ?? '';
             font-size: 0.82rem;
             font-weight: 700;
             color: #334155;
+        }
+
+        .label-symmetric {
+            min-height: 38px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            line-height: 1.25;
+        }
+
+        .sublabel-text {
+            display: block;
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        .input-password-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .input-password-wrapper input {
+            padding-right: 2.75rem !important;
+        }
+
+        .btn-toggle-eye {
+            position: absolute;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            outline: none;
+            transition: color 0.2s ease;
+        }
+
+        .btn-toggle-eye:hover {
+            color: var(--primary);
         }
 
         input[type="text"], input[type="password"], textarea {
@@ -262,6 +336,12 @@ $msg = $_GET['msg'] ?? '';
             gap: 6px;
             margin-bottom: 1rem;
         }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -270,8 +350,22 @@ $msg = $_GET['msg'] ?? '';
         <a href="index.php?action=logout" style="color:white; text-decoration:none; font-size:0.85rem;">Cerrar Sesión</a>
     </nav>
     <div class="container">
-        <a href="index.php?action=dashboard" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Volver al Panel Principal</a>
+        <?php if (!$esPrimerInicio): ?>
+            <a href="index.php?action=dashboard" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Volver al Panel Principal</a>
+        <?php endif; ?>
+
         <div class="card">
+            <?php if ($esPrimerInicio): ?>
+                <!-- ALERTA DE OBLIGACIÓN EN PRIMER INICIO -->
+                <div class="alert-primer-inicio">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.3rem; color: #d97706; margin-top: 2px;"></i>
+                    <div>
+                        <strong style="display:block; font-size: 0.98rem; margin-bottom: 2px;">Primer inicio de sesión detectado</strong>
+                        Por directriz de seguridad institucional, debes cambiar tu contraseña provisional por una contraseña personal y segura para activar tu cuenta y poder ingresar al sistema.
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="profile-header">
                 <div class="avatar-container">
                     <div class="avatar">
@@ -285,12 +379,14 @@ $msg = $_GET['msg'] ?? '';
                             <i class="fa-solid fa-user-shield"></i>
                         <?php endif; ?>
                     </div>
+                    <?php if (!$esPrimerInicio): ?>
                     <form action="index.php?action=actualizar_foto" method="POST" enctype="multipart/form-data" id="formFoto">
                         <label for="inputFoto" class="upload-btn-badge" title="Cambiar fotografía">
                             <i class="fa-solid fa-camera"></i>
                         </label>
                         <input type="file" id="inputFoto" name="foto" accept="image/png, image/jpeg" style="display:none;" onchange="document.getElementById('formFoto').submit();">
                     </form>
+                    <?php endif; ?>
                 </div>
 
                 <div class="profile-info">
@@ -303,12 +399,13 @@ $msg = $_GET['msg'] ?? '';
             <?php if (!empty($msg)): ?>
                 <div class="alert-success">
                     <i class="fa-solid fa-circle-check"></i>
-                    <span>¡Fotografía y cambios actualizados con éxito!</span>
+                    <span>¡Contraseña actualizada con éxito! Ya puedes ingresar normalmente al sistema.</span>
                 </div>
             <?php endif; ?>
 
             <?php if ($isAdmin): ?>
-                <form action="index.php?action=actualizar_datos_personales" method="POST">
+                <!-- FORMULARIO ADMINISTRADOR -->
+                <form action="index.php?action=actualizar_datos_personales" method="POST" id="formAdminPassword">
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Correo Electrónico (Solo Lectura)</label>
@@ -331,41 +428,189 @@ $msg = $_GET['msg'] ?? '';
                     </div>
 
                     <div class="section-title"><i class="fa-solid fa-lock"></i> Seguridad: Modificar Contraseña de Administrador</div>
-                    <div class="form-group full">
-                        <label for="nueva_password">Nueva Contraseña (Dejar en blanco para mantener la actual)</label>
-                        <input type="password" id="nueva_password" name="nueva_password" placeholder="••••••••">
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="nueva_password_admin" class="label-symmetric">
+                                <span>Nueva Contraseña</span>
+                                <span class="sublabel-text"><?= $esPrimerInicio ? '(Obligatoria para continuar)' : '(Dejar en blanco para mantener la actual)' ?></span>
+                            </label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="nueva_password_admin" name="nueva_password" placeholder="••••••••" <?= $esPrimerInicio ? 'required' : '' ?>>
+                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('nueva_password_admin', this)" title="Mostrar u ocultar contraseña">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmar_password_admin" class="label-symmetric">
+                                <span>Confirmar Nueva Contraseña</span>
+                                <span class="sublabel-text">(Repetir exactamente igual)</span>
+                            </label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="confirmar_password_admin" name="confirmar_password" placeholder="••••••••" <?= $esPrimerInicio ? 'required' : '' ?>>
+                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('confirmar_password_admin', this)" title="Mostrar u ocultar contraseña">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 10px;">
-                        <a href="index.php?action=dashboard" style="background:#f1f5f9; color:#334155; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration:none; font-weight:700; font-size:0.92rem; display:inline-flex; align-items:center;">Cancelar</a>
-                        <button type="submit" class="btn-submit"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
+                        <?php if (!$esPrimerInicio): ?>
+                            <a href="index.php?action=dashboard" style="background:#f1f5f9; color:#334155; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration:none; font-weight:700; font-size:0.92rem; display:inline-flex; align-items:center;">Cancelar</a>
+                        <?php endif; ?>
+                        <button type="submit" class="btn-submit"><i class="fa-solid fa-floppy-disk"></i> <?= $esPrimerInicio ? 'Establecer Contraseña y Continuar' : 'Guardar Cambios' ?></button>
                     </div>
                 </form>
             <?php else: ?>
-                <form action="index.php?action=actualizar_password" method="POST">
+                <!-- FORMULARIO DOCENTE Y ESTUDIANTE -->
+                <form action="index.php?action=actualizar_password" method="POST" id="formUserPassword">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>Correo Electrónico</label>
+                            <label>Correo Electrónico (Solo Lectura)</label>
                             <input type="text" value="<?= htmlspecialchars($correoUser) ?>" readonly style="background:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                         <div class="form-group">
-                            <label>Cargo Asignado</label>
-                            <input type="text" value="Personal Docente" readonly style="background:#e2e8f0; color:#64748b; cursor:not-allowed;">
+                            <label>Rol Asignado</label>
+                            <input type="text" value="<?= $isDocente ? 'Personal Docente' : 'Estudiante Institucional' ?>" readonly style="background:#e2e8f0; color:#64748b; cursor:not-allowed;">
                         </div>
                     </div>
 
-                    <div class="section-title"><i class="fa-solid fa-lock"></i> Seguridad: Modificar Contraseña de Acceso Docente</div>
-                    <div class="form-group full">
-                        <label for="nueva_password">Nueva Contraseña</label>
-                        <input type="password" id="nueva_password" name="nueva_password" placeholder="••••••••" required>
+                    <div class="section-title">
+                        <i class="fa-solid fa-lock"></i> Seguridad: Modificar Contraseña de Acceso <?= $isDocente ? 'Docente' : 'Estudiantil' ?>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="nueva_password_user" class="label-symmetric">
+                                <span>Nueva Contraseña</span>
+                                <span class="sublabel-text">(Ingresar nueva clave de acceso)</span>
+                            </label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="nueva_password_user" name="nueva_password" placeholder="••••••••" required>
+                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('nueva_password_user', this)" title="Mostrar u ocultar contraseña">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmar_password_user" class="label-symmetric">
+                                <span>Confirmar Nueva Contraseña</span>
+                                <span class="sublabel-text">(Repetir exactamente igual)</span>
+                            </label>
+                            <div class="input-password-wrapper">
+                                <input type="password" id="confirmar_password_user" name="confirmar_password" placeholder="••••••••" required>
+                                <button type="button" class="btn-toggle-eye" onclick="togglePasswordVisibility('confirmar_password_user', this)" title="Mostrar u ocultar contraseña">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                        <button type="submit" class="btn-submit"><i class="fa-solid fa-key"></i> Actualizar Contraseña</button>
+                    <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 10px;">
+                        <?php if (!$esPrimerInicio): ?>
+                            <a href="index.php?action=dashboard" style="background:#f1f5f9; color:#334155; padding: 0.8rem 1.5rem; border-radius: 8px; text-decoration:none; font-weight:700; font-size:0.92rem; display:inline-flex; align-items:center;">Cancelar</a>
+                        <?php endif; ?>
+                        <button type="submit" class="btn-submit"><i class="fa-solid fa-key"></i> <?= $esPrimerInicio ? 'Establecer Contraseña y Continuar' : 'Actualizar Contraseña' ?></button>
                     </div>
                 </form>
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- SCRIPT DE VALIDACIÓN CON GLOBOS FLOTANTES HTML5 -->
+    <script>
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (icon) {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                }
+            } else {
+                input.type = 'password';
+                if (icon) {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            }
+        }
+
+        const formAdmin = document.getElementById('formAdminPassword');
+        if (formAdmin) {
+            const passAdmin = document.getElementById('nueva_password_admin');
+            const confAdmin = document.getElementById('confirmar_password_admin');
+
+            passAdmin.addEventListener('input', function() {
+                this.setCustomValidity('');
+                if (confAdmin) confAdmin.setCustomValidity('');
+            });
+
+            confAdmin.addEventListener('input', function() {
+                this.setCustomValidity('');
+            });
+
+            formAdmin.addEventListener('submit', function(e) {
+                passAdmin.setCustomValidity('');
+                confAdmin.setCustomValidity('');
+
+                const passVal = passAdmin.value.trim();
+                const confVal = confAdmin.value.trim();
+
+                if (passVal !== '' && confVal === '') {
+                    e.preventDefault();
+                    confAdmin.setCustomValidity('Rellene este campo.');
+                    confAdmin.reportValidity();
+                    return;
+                }
+
+                if (passVal === '' && confVal !== '') {
+                    e.preventDefault();
+                    passAdmin.setCustomValidity('Rellene este campo.');
+                    passAdmin.reportValidity();
+                    return;
+                }
+
+                if (passVal !== '' && confVal !== '') {
+                    if (passAdmin.value !== confAdmin.value) {
+                        e.preventDefault();
+                        confAdmin.setCustomValidity('Las contraseñas no coinciden.');
+                        confAdmin.reportValidity();
+                        return;
+                    }
+                }
+            });
+        }
+
+        const formUser = document.getElementById('formUserPassword');
+        if (formUser) {
+            const passUser = document.getElementById('nueva_password_user');
+            const confUser = document.getElementById('confirmar_password_user');
+
+            passUser.addEventListener('input', function() {
+                this.setCustomValidity('');
+                if (confUser) confUser.setCustomValidity('');
+            });
+
+            confUser.addEventListener('input', function() {
+                this.setCustomValidity('');
+            });
+
+            formUser.addEventListener('submit', function(e) {
+                confUser.setCustomValidity('');
+
+                if (passUser.value !== confUser.value) {
+                    e.preventDefault();
+                    confUser.setCustomValidity('Las contraseñas no coinciden.');
+                    confUser.reportValidity();
+                    return;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
