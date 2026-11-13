@@ -79,6 +79,19 @@ $sumaPromediosMaterias = 0;
 $totalMaterias = count($asignaturasDefecto);
 $todosLosPeriodosCompletos = true;
 $materiasEnRecuperacion = [];
+
+// =========================================================================
+// PBI-48: GENERACIÓN DEL HASH CRIPTOGRÁFICO ÚNICO Y CORTO DE VERIFICACIÓN
+// =========================================================================
+$cadenaHashBase = $nie . '|' . $grado . '|' . date('Y');
+foreach ($asignaturasDefecto as $asigTemp) {
+    for ($pTemp = 1; $pTemp <= $totalPeriodos; $pTemp++) {
+        $valTemp = $calificacionesMap[$asigTemp][$pTemp] ?? 0.0;
+        $cadenaHashBase .= '|' . $valTemp;
+    }
+}
+$hashVerificacion = strtoupper(substr(hash('sha256', $cadenaHashBase), 0, 12));
+$hashFormateado = implode('-', str_split($hashVerificacion, 4));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -133,7 +146,7 @@ $materiasEnRecuperacion = [];
         .alert-recuperacion p { color: #7f1d1d; font-size: 0.85rem; margin-bottom: 0.5rem; }
         .recuperacion-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .recuperacion-tag { background: #ffffff; border: 1px solid #fca5a5; color: #b91c1c; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
-        .global-summary-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 12px; padding: 1.25rem 1.75rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
+        .global-summary-card { background: #f8fafc; border: 1px solid var(--border-card); border-radius: 12px; padding: 1.25rem 1.75rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2rem; }
         .summary-col span { display: block; font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 0.3rem; }
         .summary-col .val-score { font-size: 1.35rem; font-weight: 800; color: #0284c7; }
         .summary-col .val-text { font-size: 1.15rem; font-weight: 800; color: var(--text-dark); }
@@ -141,6 +154,13 @@ $materiasEnRecuperacion = [];
         .status-aprobado     { color: #16a34a; }
         .status-recuperacion { color: #dc2626; }
         .status-curso        { color: #eab308; }
+        
+        /* PBI-48: ESTILOS PARA LA ZONA DE VERIFICACIÓN HASH AL PIE */
+        .verification-hash-box { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+        .hash-info h5 { font-size: 0.85rem; font-weight: 800; color: var(--text-dark); margin-bottom: 2px; }
+        .hash-info p { font-size: 0.75rem; color: var(--text-muted); }
+        .hash-code-display { font-family: monospace; background: #ffffff; border: 1px solid var(--border-card); padding: 0.4rem 0.9rem; border-radius: 6px; font-weight: 800; color: #2563eb; font-size: 0.95rem; letter-spacing: 1px; }
+
         .signatures-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; padding-top: 0.5rem; }
         .sig-block { text-align: center; }
         .sig-divider { border-top: 1px solid #94a3b8; margin-bottom: 0.5rem; }
@@ -172,76 +192,90 @@ $materiasEnRecuperacion = [];
                 display: none !important;
             }
             .header-institucional {
-                padding-bottom: 0.5rem !important;
-                margin-bottom: 0.5rem !important;
+                padding-bottom: 0.4rem !important;
+                margin-bottom: 0.4rem !important;
             }
             .logo-circle {
-                width: 44px !important;
-                height: 44px !important;
+                width: 40px !important;
+                height: 40px !important;
             }
             .inst-titles h1 {
-                font-size: 1.05rem !important;
+                font-size: 1rem !important;
             }
             .inst-titles p {
-                font-size: 0.75rem !important;
+                font-size: 0.7rem !important;
             }
             .badge-anio {
-                padding: 0.25rem 0.8rem !important;
-                font-size: 0.75rem !important;
+                padding: 0.2rem 0.6rem !important;
+                font-size: 0.7rem !important;
             }
             .student-details-card {
-                padding: 0.45rem 0.75rem !important;
-                margin-bottom: 0.5rem !important;
-                row-gap: 0.35rem !important;
+                padding: 0.35rem 0.6rem !important;
+                margin-bottom: 0.4rem !important;
+                row-gap: 0.25rem !important;
             }
             .field-box span {
-                font-size: 0.6rem !important;
-                margin-bottom: 0.08rem !important;
+                font-size: 0.55rem !important;
+                margin-bottom: 0.05rem !important;
             }
             .field-box p {
-                font-size: 0.85rem !important;
+                font-size: 0.8rem !important;
             }
             .table-wrap {
-                margin-bottom: 0.5rem !important;
+                margin-bottom: 0.4rem !important;
                 border-radius: 6px !important;
             }
             th {
-                padding: 0.4rem 0.35rem !important;
-                font-size: 0.65rem !important;
+                padding: 0.35rem 0.3rem !important;
+                font-size: 0.6rem !important;
             }
             td {
-                padding: 0.35rem 0.35rem !important;
-                font-size: 0.75rem !important;
+                padding: 0.3rem 0.3rem !important;
+                font-size: 0.7rem !important;
             }
             .alert-recuperacion {
-                padding: 0.4rem 0.75rem !important;
-                margin-bottom: 0.45rem !important;
+                padding: 0.3rem 0.6rem !important;
+                margin-bottom: 0.35rem !important;
             }
             .alert-recuperacion p {
-                font-size: 0.75rem !important;
-                margin-bottom: 0.25rem !important;
+                font-size: 0.7rem !important;
+                margin-bottom: 0.15rem !important;
             }
             .global-summary-card {
-                padding: 0.45rem 0.75rem !important;
-                margin-bottom: 0.8rem !important;
-                gap: 0.6rem !important;
+                padding: 0.35rem 0.6rem !important;
+                margin-bottom: 0.5rem !important;
+                gap: 0.5rem !important;
             }
             .summary-col span {
-                font-size: 0.6rem !important;
-                margin-bottom: 0.08rem !important;
+                font-size: 0.55rem !important;
+                margin-bottom: 0.05rem !important;
             }
             .summary-col .val-score, .summary-col .val-text, .summary-col .val-status {
-                font-size: 0.9rem !important;
+                font-size: 0.8rem !important;
             }
-            .signatures-row {
-                padding-top: 0.5rem !important;
-                gap: 2.5rem !important;
+            .verification-hash-box {
+                padding: 0.4rem 0.75rem !important;
+                margin-bottom: 0.6rem !important;
             }
-            .sig-block h4 {
+            .hash-info h5 {
                 font-size: 0.75rem !important;
             }
-            .sig-block p {
+            .hash-info p {
                 font-size: 0.65rem !important;
+            }
+            .hash-code-display {
+                font-size: 0.8rem !important;
+                padding: 0.2rem 0.5rem !important;
+            }
+            .signatures-row {
+                padding-top: 0.3rem !important;
+                gap: 2rem !important;
+            }
+            .sig-block h4 {
+                font-size: 0.7rem !important;
+            }
+            .sig-block p {
+                font-size: 0.6rem !important;
             }
         }
     </style>
@@ -422,6 +456,17 @@ $materiasEnRecuperacion = [];
             <div class="summary-col">
                 <span>Condición Final del Alumno</span>
                 <p class="val-status <?= $claseCondicion ?>"><?= $condicionFinal ?></p>
+            </div>
+        </div>
+
+        <!-- PBI-48: BLOQUE DE CÓDIGO HASH Y LEYENDA FORMAL DE AUTENTICIDAD -->
+        <div class="verification-hash-box">
+            <div class="hash-info">
+                <h5><i class="fa-solid fa-shield-check" style="color: #2563eb; margin-right: 5px;"></i> Documento oficial verificado - INCA NOTES</h5>
+                <p>Código criptográfico de autenticidad institucional generado para validación externa.</p>
+            </div>
+            <div class="hash-code-display">
+                <?= $hashFormateado ?>
             </div>
         </div>
 

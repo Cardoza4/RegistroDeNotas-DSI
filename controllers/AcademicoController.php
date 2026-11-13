@@ -23,8 +23,6 @@ if (!class_exists('AcademicoController')) {
                 $this->db = $pdo;
             }
 
-            // PBI-39: Columnas para histórico de recuperación
-            // PBI-15: Columnas para auditoría y trazabilidad de modificaciones/anulaciones
             try {
                 if ($this->db) {
                     $this->db->exec("ALTER TABLE notas_periodos ADD COLUMN IF NOT EXISTS nota_original_reprobada DECIMAL(4,2) DEFAULT NULL");
@@ -32,13 +30,369 @@ if (!class_exists('AcademicoController')) {
                     $this->db->exec("ALTER TABLE notas_periodos ADD COLUMN IF NOT EXISTS es_recuperada TINYINT(1) DEFAULT 0");
                     $this->db->exec("ALTER TABLE notas_periodos ADD COLUMN IF NOT EXISTS fecha_recuperacion DATETIME DEFAULT NULL");
 
-                    // PBI-15 Auditoría
                     $this->db->exec("ALTER TABLE notas_periodos ADD COLUMN IF NOT EXISTS modificado_por INT DEFAULT NULL");
                     $this->db->exec("ALTER TABLE notas_periodos ADD COLUMN IF NOT EXISTS fecha_modificacion DATETIME DEFAULT NULL");
+
+                    $this->db->exec("CREATE TABLE IF NOT EXISTS bitacora_auditoria (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario VARCHAR(100) DEFAULT 'Sistema',
+                        fecha_modificacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        tabla_afectada VARCHAR(50),
+                        accion VARCHAR(20),
+                        valor_anterior TEXT,
+                        valor_nuevo TEXT
+                    )");
+
+                    $this->db->exec("CREATE TABLE IF NOT EXISTS control_periodos_actas (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        materia VARCHAR(100) NOT NULL,
+                        periodo INT NOT NULL,
+                        grado VARCHAR(100) NOT NULL DEFAULT '',
+                        seccion VARCHAR(50) NOT NULL DEFAULT '',
+                        estado VARCHAR(20) DEFAULT 'ABIERTO',
+                        motivo_reapertura TEXT DEFAULT NULL,
+                        actualizado_por INT DEFAULT NULL,
+                        fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )");
+
+                    $this->db->exec("ALTER TABLE control_periodos_actas ADD COLUMN IF NOT EXISTS grado VARCHAR(100) NOT NULL DEFAULT ''");
+                    $this->db->exec("ALTER TABLE control_periodos_actas ADD COLUMN IF NOT EXISTS seccion VARCHAR(50) NOT NULL DEFAULT ''");
+
+                    // REPARACIÓN AUTOMÁTICA DE BD: Limpiar registros globales antiguos y forzar el índice por sección
+                    try { 
+                        $this->db->exec("DELETE FROM control_periodos_actas WHERE grado = '' OR seccion = ''");
+                        $this->db->exec("ALTER TABLE control_periodos_actas DROP INDEX unique_materia_periodo"); 
+                    } catch (Exception $e) {}
+                    
+                    try { 
+                        $this->db->exec("ALTER TABLE control_periodos_actas DROP INDEX unique_acta_seccion");
+                        $this->db->exec("ALTER TABLE control_periodos_actas ADD UNIQUE INDEX unique_acta_seccion (materia, periodo, grado, seccion)"); 
+                    } catch (Exception $e) {}
+
+                    // PBI-49: Módulo de Kárdex y Estado Académico
+                    $this->db->exec("ALTER TABLE estudiantes ADD COLUMN IF NOT EXISTS estado_academico VARCHAR(50) DEFAULT 'ACTIVO'");
+
+                    $this->db->exec("CREATE TABLE IF NOT EXISTS kardex_historico (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        estudiante_id INT NOT NULL,
+                        anio_lectivo INT NOT NULL,
+                        grado VARCHAR(100),
+                        seccion VARCHAR(50),
+                        materia VARCHAR(100),
+                        promedio_final DECIMAL(4,2),
+                        condicion VARCHAR(50),
+                        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )");
                 }
             } catch (PDOException $e) {}
         }
 
+        private function registrarBitacora($tablaAfectada, $accion, $valorAnterior, $valorNuevo) {
+            try {
+                if ($this->db) {
+                    $usuarioResponsable = $_SESSION['nombre'] ?? $_SESSION['usuario'] ?? 'Administrador';
+                    if (isset($_SESSION['usuario_id'])) {
+                        $usuarioResponsable .= ' (ID: ' . $_SESSION['usuario_id'] . ')';
+                    }
+
+                    $stmtBit = $this->db->prepare("INSERT INTO bitacora_auditoria (usuario, tabla_afectada, accion, valor_anterior, valor_nuevo, fecha_modificacion) 
+                                                   VALUES (:usr, :tblo, :acc, :valAnt, :valNue, NOW())");
+                    $stmtBit->execute([
+                        ':usr'    => $usuarioResponsable,
+                        ':tblo'   => $tablaAfectada,
+                        ':acc'    => $accion,
+                        ':valAnt' => $valorAnterior,
+                        ':valNue' => $valorNuevo
+                    ]);
+                }
+            } catch (Exception $e) {}
+        }
+
+        public function estaPeriodoCerrado($materia, $periodo, $grado = '', $seccion = '') {
+            try {
+                $stmt = $this->db->prepare("SELECT estado FROM control_periodos_actas 
+                                             WHERE LOWER(TRIM(materia)) = LOWER(TRIM(:m)) 
+                                               AND periodo = :p 
+                                               AND LOWER(TRIM(grado)) = LOWER(TRIM(:g)) 
+                                               AND LOWER(TRIM(seccion)) = LOWER(TRIM(:s)) 
+                                             LIMIT 1");
+                $stmt->execute([
+                    ':m' => trim($materia),
+                    ':p' => intval($periodo),
+                    ':g' => trim($grado),
+                    ':s' => trim($seccion)
+                ]);
+                $estado = $stmt->fetchColumn();
+                return (strtoupper($estado ?: 'ABIERTO') === 'CERRADO');
+            } catch (PDOException $e) {
+                return false;
+            }
+        }
+
+        public function obtenerMapaEstadosPeriodos() {
+            $mapa = [];
+            try {
+                $stmt = $this->db->query("SELECT materia, periodo, grado, seccion, estado, motivo_reapertura, fecha_actualizacion FROM control_periodos_actas");
+                $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($filas as $f) {
+                    $clave = trim($f['materia']) . '_' . intval($f['periodo']) . '_' . trim($f['grado']) . '_' . trim($f['seccion']);
+                    $mapa[$clave] = [
+                        'estado' => strtoupper($f['estado']),
+                        'motivo' => $f['motivo_reapertura'],
+                        'fecha'  => $f['fecha_actualizacion']
+                    ];
+                }
+            } catch (PDOException $e) {}
+            return $mapa;
+        }
+
+        public function cambiarEstadoPeriodo() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
+                header('Location: index.php?action=gestion_notas&error=no_autorizado');
+                exit;
+            }
+
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $materia     = trim(html_entity_decode($_POST['materia'] ?? '', ENT_QUOTES, 'UTF-8'));
+                $periodo     = intval($_POST['periodo'] ?? 1);
+                $grado       = trim(html_entity_decode($_POST['grado'] ?? '', ENT_QUOTES, 'UTF-8'));
+                $seccion     = trim(html_entity_decode($_POST['seccion'] ?? '', ENT_QUOTES, 'UTF-8'));
+                $nuevoEstado = strtoupper(trim($_POST['nuevo_estado'] ?? 'CERRADO'));
+                $motivo      = trim($_POST['motivo_reapertura'] ?? '');
+
+                if (empty($materia) || $periodo <= 0 || empty($grado) || empty($seccion)) {
+                    header('Location: index.php?action=gestion_notas&error=parametros_invalidos');
+                    exit;
+                }
+
+                if ($nuevoEstado === 'ABIERTO' && empty($motivo)) {
+                    header('Location: index.php?action=gestion_notas&error=motivo_requerido');
+                    exit;
+                }
+
+                try {
+                    $sql = "INSERT INTO control_periodos_actas (materia, periodo, grado, seccion, estado, motivo_reapertura, actualizado_por, fecha_actualizacion)
+                            VALUES (:m, :p, :g, :s, :est, :mot, :usr, NOW())
+                            ON DUPLICATE KEY UPDATE
+                            estado = VALUES(estado),
+                            motivo_reapertura = VALUES(motivo_reapertura),
+                            actualizado_por = VALUES(actualizado_por),
+                            fecha_actualizacion = NOW()";
+                    
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([
+                        ':m'   => $materia,
+                        ':p'   => $periodo,
+                        ':g'   => $grado,
+                        ':s'   => $seccion,
+                        ':est' => $nuevoEstado,
+                        ':mot' => ($nuevoEstado === 'ABIERTO') ? $motivo : null,
+                        ':usr' => $_SESSION['usuario_id']
+                    ]);
+
+                    if ($nuevoEstado === 'CERRADO') {
+                        $this->registrarBitacora(
+                            'control_periodos_actas',
+                            'CIERRE_ACTA',
+                            "{$materia} | P{$periodo} | {$grado} - {$seccion} (ABIERTO)",
+                            "Acta cerrada para la sección {$grado} {$seccion}"
+                        );
+                    } else {
+                        $this->registrarBitacora(
+                            'control_periodos_actas',
+                            'REAPERTURA_ACTA',
+                            "{$materia} | P{$periodo} | {$grado} - {$seccion} (CERRADO)",
+                            "Reapertura extraordinaria autorizada | Motivo: {$motivo}"
+                        );
+                    }
+
+                    $redirectUrl = "Location: index.php?action=gestion_notas&msg=estado_periodo_actualizado";
+                    $redirectUrl .= "&m=" . urlencode($materia) . "&p=" . $periodo . "&g=" . urlencode($grado) . "&s=" . urlencode($seccion);
+                    header($redirectUrl);
+                    exit;
+                } catch (PDOException $e) {
+                    header('Location: index.php?action=gestion_notas&error=sql_error');
+                    exit;
+                }
+            }
+        }
+// PBI-49: Ejecución del Cierre de Año por Grado y Sección (Consolidado, Seguro y SIN salto automático)
+        public function ejecutarCierreAnual() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $anioLectivo   = intval($_POST['anio_lectivo'] ?? date('Y'));
+                $gradoCierre   = trim($_POST['grado_cierre'] ?? '');
+                $seccionCierre = trim($_POST['seccion_cierre'] ?? '');
+
+                if (empty($gradoCierre) || empty($seccionCierre)) {
+                    header('Location: index.php?action=gestion_notas&error=grado_seccion_requerido');
+                    exit;
+                }
+
+                $letraSeccion = trim(str_ireplace(['seccion', 'sección', ' '], '', strtolower($seccionCierre)));
+
+                try {
+                    $this->db->beginTransaction();
+
+                    $stmtEst = $this->db->prepare("SELECT id, grado, seccion FROM estudiantes 
+                                                   WHERE LOWER(TRIM(grado)) = LOWER(TRIM(:g)) 
+                                                     AND (
+                                                         LOWER(TRIM(seccion)) = LOWER(TRIM(:s_largo)) 
+                                                         OR LOWER(TRIM(seccion)) = LOWER(TRIM(:s_corto)) 
+                                                         OR LOWER(TRIM(seccion)) LIKE :s_like
+                                                     ) 
+                                                     AND estado_academico != 'EGRESADO/GRADUADO'");
+                    $stmtEst->execute([
+                        ':g'       => $gradoCierre,
+                        ':s_largo' => $seccionCierre,
+                        ':s_corto' => $letraSeccion,
+                        ':s_like'  => '%' . $letraSeccion . '%'
+                    ]);
+                    $estudiantesActivos = $stmtEst->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (empty($estudiantesActivos)) {
+                        $this->db->rollBack();
+                        header('Location: index.php?action=gestion_notas&error=sin_estudiantes_seccion');
+                        exit;
+                    }
+
+                    $materiasOficiales = [
+                        'Matemática', 'Lenguaje y Literatura', 'Estudios Sociales y Cívica',
+                        'Ciencia y Tecnología', 'Idioma Extranjero (Inglés)', 'Educación Física'
+                    ];
+
+                    $datosListosKardex = [];
+
+                    foreach ($estudiantesActivos as $est) {
+                        $eId = $est['id'];
+                        $gradoActual = trim($est['grado']);
+                        $seccionActual = trim($est['seccion']);
+
+                        $stmtN = $this->db->prepare("SELECT materia, COALESCE(nota_periodo, (COALESCE(act1,0)*0.35 + COALESCE(act2,0)*0.35 + COALESCE(examen,0)*0.30)) as calc 
+                                                     FROM notas_periodos WHERE estudiante_id = :id");
+                        $stmtN->execute([':id' => $eId]);
+                        $notas = $stmtN->fetchAll(PDO::FETCH_ASSOC);
+
+                        $materiasNotas = [];
+                        foreach ($notas as $n) {
+                            $m = trim($n['materia']);
+                            if (!isset($materiasNotas[$m])) $materiasNotas[$m] = [];
+                            $materiasNotas[$m][] = floatval($n['calc']);
+                        }
+
+                        $reprobadas = 0;
+                        
+                        foreach ($materiasOficiales as $mName) {
+                            $promedio = 0;
+                            if (isset($materiasNotas[$mName]) && count($materiasNotas[$mName]) > 0) {
+                                $promedio = array_sum($materiasNotas[$mName]) / count($materiasNotas[$mName]);
+                            }
+                            
+                            $condicionMateria = $promedio >= 6.0 ? 'APROBADO' : 'REPROBADO';
+                            if ($promedio < 6.0) $reprobadas++;
+
+                            $datosListosKardex[] = [
+                                'eid'  => $eId, 'anio' => $anioLectivo, 'g' => $gradoActual, 's' => $seccionActual,
+                                'mat'  => $mName, 'prom' => round($promedio, 2), 'cond' => $condicionMateria
+                            ];
+                        }
+
+                        $condicionGlobal = $reprobadas === 0 ? 'PROMOVIDO' : 'RETENIDO';
+                        $stmtUp = $this->db->prepare("UPDATE estudiantes SET estado_academico = :est WHERE id = :id");
+                        $stmtUp->execute([':est' => $condicionGlobal, ':id' => $eId]);
+                    }
+
+                    if (!empty($datosListosKardex)) {
+                        $stmtInsK = $this->db->prepare("INSERT INTO kardex_historico (estudiante_id, anio_lectivo, grado, seccion, materia, promedio_final, condicion) 
+                                                        VALUES (:eid, :anio, :g, :s, :m, :prom, :cond)");
+                        foreach ($datosListosKardex as $dk) {
+                            $stmtInsK->execute([
+                                ':eid' => $dk['eid'], ':anio' => $dk['anio'], ':g' => $dk['g'], ':s' => $dk['s'], 
+                                ':m' => $dk['mat'], ':prom' => $dk['prom'], ':cond' => $dk['cond']
+                            ]);
+                        }
+                    }
+
+                    $esBachillerato = stripos($gradoCierre, 'bachillerato') !== false;
+                    $periodosTotales = $esBachillerato ? [1, 2, 3, 4] : [1, 2, 3];
+
+                    $stmtCerrarActa = $this->db->prepare("INSERT INTO control_periodos_actas (materia, periodo, grado, seccion, estado, actualizado_por, fecha_actualizacion) 
+                                                          VALUES (:m, :p, :g, :s, 'CERRADO', :usr, NOW()) 
+                                                          ON DUPLICATE KEY UPDATE estado = 'CERRADO', fecha_actualizacion = NOW()");
+                    
+                    foreach ($materiasOficiales as $mat) {
+                        foreach ($periodosTotales as $per) {
+                            $stmtCerrarActa->execute([
+                                ':m' => $mat, ':p' => $per, ':g' => $gradoCierre, ':s' => $seccionCierre, ':usr' => $_SESSION['usuario_id'] ?? null
+                            ]);
+                        }
+                    }
+
+                    $this->registrarBitacora('estudiantes_y_kardex', 'CIERRE_ANUAL_SECCION', "Año Lectivo $anioLectivo | Grado: $gradoCierre - $seccionCierre", "Cierre ejecutado. Kárdex generado y actas cerradas definitivamente. (Sin promoción automática)");
+
+                    $this->db->commit();
+                    header('Location: index.php?action=gestion_notas&msg=cierre_anual_exito');
+                    exit;
+                } catch (Exception $e) {
+                    if ($this->db->inTransaction()) $this->db->rollBack();
+                    header('Location: index.php?action=gestion_notas&error=cierre_anual_fallo');
+                    exit;
+                }
+            }
+        }
+    // PBI: Apertura de Nuevo Año (Matrícula Manual post-cierre al año inmediato superior)
+        public function procesarPromocionManual() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $estId        = intval($_POST['estudiante_id'] ?? 0);
+                $nuevoGrado   = trim($_POST['nuevo_grado'] ?? '');
+                $nuevaSeccion = trim($_POST['nueva_seccion'] ?? '');
+                $estadoActual = trim($_POST['estado_actual'] ?? '');
+                
+                // Calculamos automáticamente el año inmediato superior (ej. 2026 -> 2027)
+                $anioSiguiente = intval($_POST['anio_lectivo_destino'] ?? (date('Y') + 1));
+
+                if ($estId > 0 && !empty($nuevoGrado) && !empty($nuevaSeccion)) {
+                    try {
+                        $this->db->beginTransaction();
+
+                        // Opcional: Si en tu tabla 'estudiantes' o 'matriculas' manejas el año, lo actualizamos.
+                        // Actualizamos el grado, la sección y restauramos el estado a ACTIVO para el nuevo año
+                        $nuevoEstado = ($nuevoGrado === 'EGRESADO/GRADUADO') ? 'EGRESADO/GRADUADO' : 'ACTIVO';
+                        
+                        $stmtUp = $this->db->prepare("UPDATE estudiantes SET grado = :ng, seccion = :ns, estado_academico = :est WHERE id = :id");
+                        $stmtUp->execute([
+                            ':ng'  => $nuevoGrado,
+                            ':ns'  => $nuevaSeccion,
+                            ':est' => $nuevoEstado,
+                            ':id'  => $estId
+                        ]);
+
+                        // Limpiamos las notas del ciclo anterior para que empiece limpio en el nuevo año
+                        $stmtDelNotas = $this->db->prepare("DELETE FROM notas_periodos WHERE estudiante_id = :id");
+                        $stmtDelNotas->execute([':id' => $estId]);
+
+                        $this->registrarBitacora('estudiantes', 'MATRICULA_ANIO_SUPERIOR', "Estado previo: {$estadoActual}", "Alumno inscrito para el año {$anioSiguiente} en: {$nuevoGrado} {$nuevaSeccion} (ACTIVO y Notas limpiadas)");
+                        
+                        $this->db->commit();
+                        header('Location: index.php?action=gestion_notas&msg=promocion_exitosa');
+                        exit;
+                    } catch (PDOException $e) {
+                        if ($this->db->inTransaction()) $this->db->rollBack();
+                    }
+                }
+                header('Location: index.php?action=gestion_notas&error=promocion_fallida');
+                exit;
+            }
+        }
         public function login() {
             $error = '';
             
@@ -141,6 +495,7 @@ if (!class_exists('AcademicoController')) {
 
             $estudiantes = [];
             $docenteInfo = null;
+            $estadosPeriodos = $this->obtenerMapaEstadosPeriodos();
 
             if ($rol === 'DOCENTE') {
                 try {
@@ -163,7 +518,7 @@ if (!class_exists('AcademicoController')) {
                 try {
                     if (!empty($gradosAsignados)) {
                         $placeholders = implode(',', array_fill(0, count($gradosAsignados), '?'));
-                        $sql = "SELECT id, nie, nombre, apellido, correo, grado, seccion, encargado, telefono, direccion, fecha_nacimiento, genero, foto 
+                        $sql = "SELECT id, nie, nombre, apellido, correo, grado, seccion, encargado, telefono, direccion, fecha_nacimiento, genero, foto, estado_academico 
                                 FROM estudiantes 
                                 WHERE grado IN ($placeholders) 
                                 ORDER BY apellido ASC, nombre ASC";
@@ -180,7 +535,7 @@ if (!class_exists('AcademicoController')) {
                 require_once __DIR__ . '/../views/gestion_notas_docente.php';
             } else {
                 try {
-                    $stmt = $this->db->query("SELECT id, nie, nombre, apellido, correo, grado, seccion, encargado, telefono, direccion, fecha_nacimiento, genero, foto FROM estudiantes ORDER BY apellido ASC, nombre ASC");
+                    $stmt = $this->db->query("SELECT id, nie, nombre, apellido, correo, grado, seccion, encargado, telefono, direccion, fecha_nacimiento, genero, foto, estado_academico FROM estudiantes ORDER BY apellido ASC, nombre ASC");
                     $estudiantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 } catch (PDOException $e) {
                     $estudiantes = [];
@@ -249,7 +604,6 @@ if (!class_exists('AcademicoController')) {
         }
 
         public function usuariosLista() {
-            // RESTRICCIÓN ESTRICTA: Solo Administrador puede acceder al Directorio de Usuarios
             if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
                 header('Location: index.php?action=dashboard');
                 exit;
@@ -259,21 +613,16 @@ if (!class_exists('AcademicoController')) {
             try {
                 $sql = "SELECT u.*, 
                                COALESCE(e.nie, u.username) AS nie,
-                               e.grado, 
-                               e.seccion, 
+                               COALESCE(e.grado, 'N/A') AS grado, 
+                               COALESCE(e.seccion, 'N/A') AS seccion, 
                                e.encargado, 
                                e.dui_encargado, 
-                               e.direccion AS direccion_estudiante
+                               COALESCE(e.direccion, u.direccion) AS direccion_estudiante
                         FROM usuarios u
                         LEFT JOIN estudiantes e ON (LOWER(e.nie) = LOWER(u.username) OR LOWER(e.correo) = LOWER(u.correo))
                         ORDER BY u.id DESC";
                 $stmt = $this->db->query($sql);
                 $datosCargados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                if (empty($datosCargados)) {
-                    $stmtEst = $this->db->query("SELECT id, nie AS username, nie, nombre, apellido, correo, 'ESTUDIANTE' AS rol, telefono, genero, foto, grado, seccion, encargado, dui_encargado, direccion FROM estudiantes ORDER BY id DESC");
-                    $datosCargados = $stmtEst->fetchAll(PDO::FETCH_ASSOC);
-                }
             } catch (PDOException $e) {
                 $datosCargados = [];
             }
@@ -423,12 +772,56 @@ if (!class_exists('AcademicoController')) {
             $id = intval($_GET['id'] ?? 0);
             if ($id > 0) {
                 try {
+                    $stmtInfo = $this->db->prepare("SELECT username, correo, rol, nombre, apellido FROM usuarios WHERE id = :id LIMIT 1");
+                    $stmtInfo->execute([':id' => $id]);
+                    $usrEliminado = $stmtInfo->fetch(PDO::FETCH_ASSOC);
+
                     $stmt = $this->db->prepare("DELETE FROM usuarios WHERE id = :id");
                     $stmt->execute([':id' => $id]);
 
-                    if ($stmt->rowCount() === 0) {
+                    if ($stmt->rowCount() > 0) {
+                        if ($usrEliminado) {
+                            $nieBorrar = explode('@', $usrEliminado['username'] ?? '')[0];
+                            $corBorrar = $usrEliminado['correo'] ?? '';
+                            $stmtDelEst = $this->db->prepare("DELETE FROM estudiantes WHERE LOWER(nie) = LOWER(:nie) OR ( LOWER(correo) = LOWER(:cor) AND :cor != '' )");
+                            $stmtDelEst->execute([
+                                ':nie' => $nieBorrar,
+                                ':cor' => $corBorrar
+                            ]);
+                        }
+
+                        $nombreEliminado = $usrEliminado ? ($usrEliminado['nombre'] . ' ' . $usrEliminado['apellido'] . ' (' . $usrEliminado['username'] . ')') : "ID: {$id}";
+                        $rolEliminado = $usrEliminado['rol'] ?? 'Usuario';
+
+                        $this->registrarBitacora(
+                            'usuarios',
+                            'ELIMINACION',
+                            "Usuario eliminado: {$nombreEliminado} | Rol: {$rolEliminado}",
+                            'N/D (Registro borrado)'
+                        );
+                    } else {
+                        $stmtEstInfo = $this->db->prepare("SELECT nie, correo, nombre, apellido FROM estudiantes WHERE id = :id LIMIT 1");
+                        $stmtEstInfo->execute([':id' => $id]);
+                        $estEliminado = $stmtEstInfo->fetch(PDO::FETCH_ASSOC);
+
                         $stmtEst = $this->db->prepare("DELETE FROM estudiantes WHERE id = :id");
                         $stmtEst->execute([':id' => $id]);
+
+                        if ($stmtEst->rowCount() > 0) {
+                            if ($estEliminado && !empty($estEliminado['nie'])) {
+                                $stmtDelUsr = $this->db->prepare("DELETE FROM usuarios WHERE LOWER(username) = LOWER(:nie)");
+                                $stmtDelUsr->execute([':nie' => $estEliminado['nie']]);
+                            }
+
+                            $nombreEst = $estEliminado ? ($estEliminado['nombre'] . ' ' . $estEliminado['apellido'] . ' (NIE: ' . $estEliminado['nie'] . ')') : "ID: {$id}";
+
+                            $this->registrarBitacora(
+                                'estudiantes',
+                                'ELIMINACION',
+                                "Estudiante eliminado: {$nombreEst}",
+                                'N/D (Registro borrado)'
+                            );
+                        }
                     }
                 } catch (PDOException $e) {}
             }
@@ -450,6 +843,218 @@ if (!class_exists('AcademicoController')) {
                 header('Location: index.php?action=dashboard');
                 exit;
             }
+        }
+
+        public function guardarUsuario() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $rol              = trim($_POST['rol'] ?? 'estudiante');
+                $primerNombre     = trim($_POST['primer_nombre'] ?? '');
+                $segundoNombre    = trim($_POST['segundo_nombre'] ?? '');
+                $primerApellido   = trim($_POST['primer_apellido'] ?? '');
+                $segundoApellido  = trim($_POST['segundo_apellido'] ?? '');
+                $telefono         = trim($_POST['telefono'] ?? '');
+                $genero           = trim($_POST['genero'] ?? 'Masculino');
+                
+                $nombresCompletos   = trim($primerNombre . ' ' . $segundoNombre);
+                $apellidosCompletos = trim($primerApellido . ' ' . $segundoApellido);
+
+                $grado           = trim($_POST['grado'] ?? '');
+                $seccion         = trim($_POST['seccion'] ?? '');
+                $fechaNacimiento = !empty($_POST['fecha_nacimiento']) ? $_POST['fecha_nacimiento'] : null;
+                $encargado       = trim($_POST['encargado'] ?? '');
+                $duiEncargado    = trim($_POST['dui_encargado'] ?? '');
+                $direccion       = trim($_POST['direccion'] ?? '');
+                
+                $dui              = trim($_POST['dui'] ?? '');
+                $escalafon        = trim($_POST['escalafon'] ?? '');
+                $cargo            = trim($_POST['cargo'] ?? 'Administrador');
+                $gradoOrientacion = trim($_POST['grado_orientacion'] ?? 'Ninguno');
+                $materiasImparte  = isset($_POST['materias_imparte']) ? implode(', ', $_POST['materias_imparte']) : '';
+
+                if (empty($nombresCompletos) || empty($apellidosCompletos)) {
+                    header('Location: index.php?action=registro&error=campos_vacios');
+                    exit;
+                }
+
+                $rolUpper = strtoupper($rol);
+                if ($rolUpper === 'ESTUDIANTE') {
+                    $rolBD = 'ESTUDIANTE';
+                    
+                    $pApeInitial = !empty($primerApellido) ? strtoupper(mb_substr(trim($primerApellido), 0, 1)) : 'X';
+                    $sApeInitial = !empty($segundoApellido) ? strtoupper(mb_substr(trim($segundoApellido), 0, 1)) : 'X';
+                    $iniciales = $pApeInitial . $sApeInitial;
+
+                    $siguienteCorrelativo = 1;
+                    try {
+                        $this->db->exec("DELETE FROM estudiantes WHERE nie NOT IN (SELECT username FROM usuarios WHERE username IS NOT NULL)");
+
+                        $stmtUsr = $this->db->prepare("SELECT username FROM usuarios WHERE username LIKE ?");
+                        $stmtUsr->execute([$iniciales . '%']);
+                        $usersUsr = $stmtUsr->fetchAll(PDO::FETCH_COLUMN);
+
+                        $stmtEst = $this->db->prepare("SELECT nie FROM estudiantes WHERE nie LIKE ?");
+                        $stmtEst->execute([$iniciales . '%']);
+                        $niesEst = $stmtEst->fetchAll(PDO::FETCH_COLUMN);
+
+                        $todosLosCarnets = array_merge($usersUsr, $niesEst);
+                        $numerosUsados = [];
+
+                        foreach ($todosLosCarnets as $carnet) {
+                            $carnetLimpio = strtoupper(trim(explode('@', $carnet)[0]));
+                            $numStr = preg_replace('/[^0-9]/', '', substr($carnetLimpio, strlen($iniciales)));
+                            if ($numStr !== '') {
+                                $numerosUsados[intval($numStr)] = true;
+                            }
+                        }
+
+                        while (isset($numerosUsados[$siguienteCorrelativo])) {
+                            $siguienteCorrelativo++;
+                        }
+
+                        $username = $iniciales . str_pad($siguienteCorrelativo, 5, '0', STR_PAD_LEFT);
+
+                    } catch (Exception $e) {
+                        $username = $iniciales . '00001';
+                    }
+
+                    $nie = $username;
+                    $correo = $username . '@inca.edu.sv';
+                    
+                    $ddmm = '2026';
+                    if (!empty($fechaNacimiento)) {
+                        $partes = explode('-', $fechaNacimiento);
+                        if (count($partes) === 3) {
+                            $ddmm = $partes[2] . $partes[1];
+                        }
+                    }
+                    $passwordTemporal = $username . '*' . $ddmm;
+
+                } elseif ($rolUpper === 'DOCENTE') {
+                    $rolBD = 'DOCENTE';
+                    $pNom = strtolower(trim($primerNombre));
+                    $pApe = strtolower(trim($primerApellido));
+                    $username = $pNom . '_' . $pApe;
+                    $correo   = $username . '@inca.edu.sv';
+                    $passwordTemporal = '12345';
+                } else {
+                    $rolBD = 'ADMINISTRADOR';
+                    $pNom = strtolower(trim($primerNombre));
+                    $pApe = strtolower(trim($primerApellido));
+                    $username = $pNom . '_' . $pApe;
+                    $correo   = $username . '@inca.edu.sv';
+                    $passwordTemporal = '12345';
+                }
+
+                try {
+                    $this->db->beginTransaction();
+
+                    $stmtUsr = $this->db->prepare("INSERT INTO usuarios (username, correo, password, rol, nombre, apellido, telefono, genero, dui, escalafon, cargo, grado_orientacion, materias_imparte) 
+                                                   VALUES (:usr, :cor, :pass, :rol, :nom, :ape, :tel, :gen, :dui, :esc, :cargo, :ori, :mat)");
+                    $stmtUsr->execute([
+                        ':usr'   => $username,
+                        ':cor'   => $correo,
+                        ':pass'  => password_hash($passwordTemporal, PASSWORD_DEFAULT),
+                        ':rol'   => $rolBD,
+                        ':nom'   => $nombresCompletos,
+                        ':ape'   => $apellidosCompletos,
+                        ':tel'   => $telefono,
+                        ':gen'   => $genero,
+                        ':dui'   => !empty($dui) ? $dui : null,
+                        ':esc'   => !empty($escalafon) ? $escalafon : null,
+                        ':cargo' => !empty($cargo) ? $cargo : null,
+                        ':ori'   => !empty($gradoOrientacion) ? $gradoOrientacion : null,
+                        ':mat'   => !empty($materiasImparte) ? $materiasImparte : null
+                    ]);
+
+                    if ($rolBD === 'ESTUDIANTE') {
+                        $stmtEst = $this->db->prepare("INSERT INTO estudiantes (nie, nombre, apellido, correo, grado, seccion, encargado, dui_encargado, telefono, direccion, fecha_nacimiento, genero) 
+                                                       VALUES (:nie, :nom, :ape, :cor, :grado, :secc, :enc, :dui_enc, :tel, :dir, :fec, :gen)
+                                                       ON DUPLICATE KEY UPDATE nombre=VALUES(nombre), apellido=VALUES(apellido), grado=VALUES(grado), seccion=VALUES(seccion)");
+                        $stmtEst->execute([
+                            ':nie'     => $username,
+                            ':nom'     => $nombresCompletos,
+                            ':ape'     => $apellidosCompletos,
+                            ':cor'     => $correo,
+                            ':grado'   => $grado,
+                            ':secc'    => $seccion,
+                            ':enc'     => $encargado,
+                            ':dui_enc' => $duiEncargado,
+                            ':tel'     => $telefono,
+                            ':dir'     => $direccion,
+                            ':fec'     => $fechaNacimiento,
+                            ':gen'     => $genero
+                        ]);
+                    }
+
+                    $this->registrarBitacora(
+                        'usuarios',
+                        'CREACION_USUARIO',
+                        'N/A',
+                        "Usuario creado: {$username} | Rol: {$rolBD} | Nombre: {$nombresCompletos} {$apellidosCompletos}"
+                    );
+
+                    $this->db->commit();
+                    header('Location: index.php?action=registro&msg=creado');
+                    exit;
+
+                } catch (PDOException $e) {
+                    if ($this->db->inTransaction()) {
+                        $this->db->rollBack();
+                    }
+                    header('Location: index.php?action=registro&error=duplicado');
+                    exit;
+                }
+            }
+        }
+
+        public function obtenerSiguienteNie() {
+            if (!isset($_SESSION['usuario_id'])) {
+                header('Content-Type: application/json');
+                echo json_encode(['nie' => 'XX00001']);
+                exit;
+            }
+
+            $iniciales = strtoupper(trim($_GET['iniciales'] ?? 'XX'));
+            $siguienteCorrelativo = 1;
+
+            try {
+                $stmtEst = $this->db->prepare("SELECT nie FROM estudiantes WHERE nie LIKE ?");
+                $stmtEst->execute([$iniciales . '%']);
+                $niesEst = $stmtEst->fetchAll(PDO::FETCH_COLUMN);
+
+                $stmtUsr = $this->db->prepare("SELECT username FROM usuarios WHERE username LIKE ?");
+                $stmtUsr->execute([$iniciales . '%']);
+                $usersUsr = $stmtUsr->fetchAll(PDO::FETCH_COLUMN);
+
+                $todosLosCarnets = array_merge($niesEst, $usersUsr);
+                $numerosUsados = [];
+
+                foreach ($todosLosCarnets as $carnet) {
+                    $carnetLimpio = strtoupper(trim(explode('@', $carnet)[0]));
+                    $numStr = preg_replace('/[^0-9]/', '', substr($carnetLimpio, strlen($iniciales)));
+                    if ($numStr !== '') {
+                        $numerosUsados[intval($numStr)] = true;
+                    }
+                }
+
+                while (isset($numerosUsados[$siguienteCorrelativo])) {
+                    $siguienteCorrelativo++;
+                }
+
+            } catch (Exception $e) {
+                $siguienteCorrelativo = 1;
+            }
+
+            $nuevoNie = $iniciales . str_pad($siguienteCorrelativo, 5, '0', STR_PAD_LEFT);
+
+            header('Content-Type: application/json');
+            echo json_encode(['nie' => $nuevoNie]);
+            exit;
         }
 
         public function datosPersonales() {
@@ -690,7 +1295,6 @@ if (!class_exists('AcademicoController')) {
             }
         }
 
-        // PBI-39: GUARDADO DE NOTA DE RECUPERACIÓN CON SUSTITUCIÓN Y AUDITORÍA HISTÓRICA
         public function guardarRecuperacion() {
             if (!isset($_SESSION['usuario_id']) || strtoupper($_SESSION['rol'] ?? '') === 'ESTUDIANTE') {
                 header('Location: index.php?action=dashboard');
@@ -705,6 +1309,17 @@ if (!class_exists('AcademicoController')) {
 
                 if ($estudianteId <= 0 || empty($materia)) {
                     header('Location: index.php?action=gestion_notas&error=recuperacion_invalida');
+                    exit;
+                }
+
+                $stmtG = $this->db->prepare("SELECT grado, seccion FROM estudiantes WHERE id = :id LIMIT 1");
+                $stmtG->execute([':id' => $estudianteId]);
+                $estDatosG = $stmtG->fetch(PDO::FETCH_ASSOC);
+                $gEst = $estDatosG['grado'] ?? '';
+                $sEst = $estDatosG['seccion'] ?? '';
+
+                if ($this->estaPeriodoCerrado($materia, $periodo, $gEst, $sEst)) {
+                    header('Location: index.php?action=gestion_notas&error=periodo_cerrado');
                     exit;
                 }
 
@@ -731,7 +1346,6 @@ if (!class_exists('AcademicoController')) {
 
                     $notaRecuperacion = max(0.0, min(10.0, round($notaRecuperacion, 2)));
 
-                    // PBI-15 + PBI-39: Guardar sustitución y registrar traza de auditoría
                     $sqlUp = "UPDATE notas_periodos 
                               SET nota_original_reprobada = :orig,
                                   nota_recuperacion = :rec,
@@ -750,6 +1364,13 @@ if (!class_exists('AcademicoController')) {
                         ':id'         => $regActual['id']
                     ]);
 
+                    $this->registrarBitacora(
+                        'notas_periodos',
+                        'RECUPERACION',
+                        "Estudiante ID: {$estudianteId} | Materia: {$materia} | Periodo: {$periodo} | Nota Reprobada: {$notaOriginalReprobada}",
+                        "Nota Recuperación Sustituida: {$notaRecuperacion}"
+                    );
+
                     header('Location: index.php?action=gestion_notas&msg=recuperacion_exitosa');
                     exit;
                 } catch (PDOException $e) {
@@ -758,7 +1379,6 @@ if (!class_exists('AcademicoController')) {
             }
         }
 
-        // PBI-15: ANULACIÓN SEGURA DE REGISTRO ERRÓNEO CON TRAZA DE AUDITORÍA
         public function anularNota() {
             if (!isset($_SESSION['usuario_id']) || strtoupper($_SESSION['rol'] ?? '') === 'ESTUDIANTE') {
                 header('Location: index.php?action=dashboard');
@@ -775,7 +1395,17 @@ if (!class_exists('AcademicoController')) {
                     exit;
                 }
 
-                // Si es docente, comprobar que imparte esa materia
+                $stmtG = $this->db->prepare("SELECT grado, seccion FROM estudiantes WHERE id = :id LIMIT 1");
+                $stmtG->execute([':id' => $estudianteId]);
+                $estDatosG = $stmtG->fetch(PDO::FETCH_ASSOC);
+                $gEst = $estDatosG['grado'] ?? '';
+                $sEst = $estDatosG['seccion'] ?? '';
+
+                if ($this->estaPeriodoCerrado($materia, $periodo, $gEst, $sEst)) {
+                    header('Location: index.php?action=gestion_notas&error=periodo_cerrado');
+                    exit;
+                }
+
                 if (strtoupper($_SESSION['rol'] ?? '') === 'DOCENTE') {
                     try {
                         $stmtDoc = $this->db->prepare("SELECT materias_imparte FROM usuarios WHERE id = :id LIMIT 1");
@@ -792,7 +1422,6 @@ if (!class_exists('AcademicoController')) {
                 }
 
                 try {
-                    // Criterio 2 y 3 de PBI-15: Colocar en NULL (Sin calificar) y registrar la traza del responsable
                     $sqlAnular = "UPDATE notas_periodos 
                                   SET act1 = NULL, 
                                       act2 = NULL, 
@@ -812,6 +1441,13 @@ if (!class_exists('AcademicoController')) {
                         ':p'   => $periodo
                     ]);
 
+                    $this->registrarBitacora(
+                        'notas_periodos',
+                        'ANULACION',
+                        "Estudiante ID: {$estudianteId} | Materia: {$materia} | Periodo: {$periodo}",
+                        "Calificación anulada (Restablecida a Sin calificar)"
+                    );
+
                     header('Location: index.php?action=gestion_notas&msg=nota_anulada_exito');
                     exit;
                 } catch (PDOException $e) {
@@ -824,7 +1460,6 @@ if (!class_exists('AcademicoController')) {
             }
         }
 
-        // GUARDADO DE NOTAS CON PBI-12 (TRANSACCIÓN) Y PBI-15 (AUDITORÍA)
         public function guardarNota() {
             if (!isset($_SESSION['usuario_id']) || strtoupper($_SESSION['rol'] ?? '') === 'ESTUDIANTE') {
                 header('Location: index.php?action=dashboard');
@@ -832,7 +1467,6 @@ if (!class_exists('AcademicoController')) {
             }
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                // Si el formulario envía solicitud explícita de anulación
                 if (!empty($_POST['accion_anular'])) {
                     $this->anularNota();
                     return;
@@ -856,12 +1490,21 @@ if (!class_exists('AcademicoController')) {
                     } catch (PDOException $eDoc) {}
                 }
 
-                // PBI-12: Matriz masiva con transacción atómica y PBI-15: Traza de auditoría
                 if (!empty($_POST['modo_matriz']) && isset($_POST['estudiante_ids']) && is_array($_POST['estudiante_ids'])) {
                     $idsArr  = $_POST['estudiante_ids'];
                     $act1Arr = $_POST['act1'] ?? [];
                     $act2Arr = $_POST['act2'] ?? [];
                     $examArr = $_POST['examen'] ?? [];
+
+                    $gradoMatriz = trim($_POST['matriz_grado'] ?? '');
+                    $seccionMatriz = trim($_POST['matriz_seccion'] ?? '');
+
+                    if (!empty($gradoMatriz) && !empty($seccionMatriz)) {
+                        if ($this->estaPeriodoCerrado($materia, $periodo, $gradoMatriz, $seccionMatriz)) {
+                            header('Location: index.php?action=gestion_notas&error=periodo_cerrado');
+                            exit;
+                        }
+                    }
 
                     try {
                         $this->db->beginTransaction();
@@ -880,6 +1523,15 @@ if (!class_exists('AcademicoController')) {
                         foreach ($idsArr as $eIdRaw) {
                             $eId = intval($eIdRaw);
                             if ($eId <= 0) continue;
+
+                            if (empty($gradoMatriz) || empty($seccionMatriz)) {
+                                $stmtChkEst = $this->db->prepare("SELECT grado, seccion FROM estudiantes WHERE id = :id LIMIT 1");
+                                $stmtChkEst->execute([':id' => $eId]);
+                                $dEst = $stmtChkEst->fetch(PDO::FETCH_ASSOC);
+                                if ($this->estaPeriodoCerrado($materia, $periodo, $dEst['grado'] ?? '', $dEst['seccion'] ?? '')) {
+                                    continue;
+                                }
+                            }
 
                             $a1 = isset($act1Arr[$eId]) && $act1Arr[$eId] !== '' ? floatval($act1Arr[$eId]) : 0.0;
                             $a2 = isset($act2Arr[$eId]) && $act2Arr[$eId] !== '' ? floatval($act2Arr[$eId]) : 0.0;
@@ -904,6 +1556,14 @@ if (!class_exists('AcademicoController')) {
                         }
 
                         $this->db->commit();
+
+                        $this->registrarBitacora(
+                            'notas_periodos',
+                            'MATRIZ_UPDATE',
+                            "Actualización masiva de sección en Materia: {$materia}, Periodo: {$periodo}",
+                            "Total estudiantes procesados: " . count($idsArr)
+                        );
+
                         header('Location: index.php?action=gestion_notas&msg=matriz_guardada');
                         exit;
                     } catch (PDOException $eMat) {
@@ -918,7 +1578,6 @@ if (!class_exists('AcademicoController')) {
                     }
                 }
 
-                // Guardado individual estándar con traza de auditoría (PBI-15)
                 $estudianteId = intval($_POST['estudiante_id'] ?? 0);
                 $act1         = max(0.0, min(10.0, round(floatval($_POST['act1'] ?? 0), 2)));
                 $act2         = max(0.0, min(10.0, round(floatval($_POST['act2'] ?? 0), 2)));
@@ -926,6 +1585,17 @@ if (!class_exists('AcademicoController')) {
 
                 if ($estudianteId <= 0) {
                     header('Location: index.php?action=gestion_notas&error=estudiante_invalido');
+                    exit;
+                }
+
+                $stmtG = $this->db->prepare("SELECT grado, seccion FROM estudiantes WHERE id = :id LIMIT 1");
+                $stmtG->execute([':id' => $estudianteId]);
+                $estDatosG = $stmtG->fetch(PDO::FETCH_ASSOC);
+                $gEst = $estDatosG['grado'] ?? '';
+                $sEst = $estDatosG['seccion'] ?? '';
+
+                if ($this->estaPeriodoCerrado($materia, $periodo, $gEst, $sEst)) {
+                    header('Location: index.php?action=gestion_notas&error=periodo_cerrado');
                     exit;
                 }
 
@@ -951,9 +1621,9 @@ if (!class_exists('AcademicoController')) {
                             if ($relacionado) {
                                 $estudianteId = intval($relacionado['id']);
                             } else {
-                                $stmtInsertEst = $this->db->prepare("INSERT INTO estudiantes (nie, nombre, apellido, correo, grado, seccion) 
+                                $stmtInsertEst2 = $this->db->prepare("INSERT INTO estudiantes (nie, nombre, apellido, correo, grado, seccion) 
                                                                      VALUES (:nie, :n, :a, :c, '1° Año Bachillerato', 'Sección A')");
-                                $stmtInsertEst->execute([
+                                $stmtInsertEst2->execute([
                                     ':nie' => $nieTarget,
                                     ':n'   => $usrInfo['nombre'] ?? 'Estudiante',
                                     ':a'   => $usrInfo['apellido'] ?? 'INCA',
@@ -987,6 +1657,13 @@ if (!class_exists('AcademicoController')) {
                         ':nota_periodo'  => $notaPeriodo,
                         ':usr'           => $_SESSION['usuario_id'] ?? null
                     ]);
+
+                    $this->registrarBitacora(
+                        'notas_periodos',
+                        'UPDATE',
+                        "Estudiante ID: {$estudianteId} | Materia: {$materia} | Periodo: {$periodo}",
+                        "Act1: {$act1} | Act2: {$act2} | Examen: {$examen} | Nota Final: {$notaPeriodo}"
+                    );
 
                     header('Location: index.php?action=gestion_notas&msg=nota_guardada');
                     exit;
@@ -1098,6 +1775,7 @@ if (!class_exists('AcademicoController')) {
 
             $id = intval($_GET['id'] ?? 0);
             $estudianteData = [];
+            $historialKardex = [];
 
             try {
                 $stmt = $this->db->prepare("SELECT * FROM estudiantes WHERE id = :id LIMIT 1");
@@ -1110,8 +1788,14 @@ if (!class_exists('AcademicoController')) {
                 if (empty($estudianteData['seccion'])) {
                     $estudianteData['seccion'] = 'Sección A';
                 }
+
+                $stmtKardex = $this->db->prepare("SELECT * FROM kardex_historico WHERE estudiante_id = :id ORDER BY anio_lectivo DESC, materia ASC");
+                $stmtKardex->execute([':id' => $id]);
+                $historialKardex = $stmtKardex->fetchAll(PDO::FETCH_ASSOC);
+
             } catch (PDOException $e) {
                 $estudianteData = [];
+                $historialKardex = [];
             }
 
             require_once __DIR__ . '/../views/editar_estudiante.php';
@@ -1176,9 +1860,6 @@ if (!class_exists('AcademicoController')) {
             }
         }
 
-        // =========================================================================
-        // PBI-46: CUADRO DE HONOR Y RANKING AUTOMÁTICO DE RENDIMIENTO POR SECCIÓN
-        // =========================================================================
         public function cuadroHonor() {
             if (!isset($_SESSION['usuario_id'])) {
                 header('Location: index.php?action=login');
@@ -1187,7 +1868,6 @@ if (!class_exists('AcademicoController')) {
 
             $rolUsuario = strtoupper($_SESSION['rol'] ?? 'DOCENTE');
 
-            // REGLA 1: Bloqueo de seguridad al Estudiante
             if ($rolUsuario === 'ESTUDIANTE') {
                 header('Location: index.php?action=dashboard');
                 exit;
@@ -1195,7 +1875,6 @@ if (!class_exists('AcademicoController')) {
 
             $esAdmin = in_array($rolUsuario, ['ADMIN', 'ADMINISTRADOR']);
 
-            // Catálogo de grados existentes en la BD + estándar institucional
             $gradosBase = ['7° Grado', '8° Grado', '9° Grado', '1° Año Bachillerato', '2° Año Bachillerato'];
             try {
                 $stmtGr = $this->db->query("SELECT DISTINCT grado FROM estudiantes WHERE grado IS NOT NULL AND grado != '' ORDER BY grado ASC");
@@ -1209,7 +1888,6 @@ if (!class_exists('AcademicoController')) {
             $gradoSeleccionado = $grados[0] ?? '9° Grado';
             $seccionSeleccionada = 'A';
 
-            // REGLAS 2 y 3: Restricción según Rol (Admin ve todo, Docente solo su sección asignada)
             if (!$esAdmin) {
                 try {
                     $stmtDoc = $this->db->prepare("SELECT grado_orientacion, grados_imparte FROM usuarios WHERE id = :id LIMIT 1");
@@ -1239,7 +1917,6 @@ if (!class_exists('AcademicoController')) {
                     }
                 } catch (PDOException $e) {}
             } else {
-                // Administrador puede elegir cualquier grado y sección
                 if (!empty($_GET['grado'])) {
                     $gradoSeleccionado = trim($_GET['grado']);
                 }
@@ -1248,10 +1925,8 @@ if (!class_exists('AcademicoController')) {
                 }
             }
 
-            // Criterio 3: Alternar entre Periodo Activo (1, 2, 3, 4) y Promedio Acumulado Anual
             $periodoSeleccionado = $_GET['periodo'] ?? 'anual';
 
-            // 1. Obtener los estudiantes de la sección (compatible con 'A' y 'Sección A')
             $estudiantes = [];
             try {
                 $secCorto = trim($seccionSeleccionada);
@@ -1276,7 +1951,6 @@ if (!class_exists('AcademicoController')) {
                 $estudiantes = [];
             }
 
-            // REGLA 4: Promedio estrictamente GLOBAL tomando todas las materias registradas del alumno
             $rankingData = [];
 
             foreach ($estudiantes as $est) {
@@ -1343,7 +2017,6 @@ if (!class_exists('AcademicoController')) {
                 } catch (PDOException $e) {}
             }
 
-            // Criterio 1: Ordenar descendentemente por promedio global
             usort($rankingData, function($a, $b) {
                 if ($b['promedio'] == $a['promedio']) {
                     return strcmp($a['apellidos'], $b['apellidos']);
@@ -1352,6 +2025,135 @@ if (!class_exists('AcademicoController')) {
             });
 
             require_once __DIR__ . '/../views/cuadro_honor.php';
+        }
+
+        public function miHistorial() {
+            if (!isset($_SESSION['usuario_id']) || strtoupper($_SESSION['rol'] ?? '') !== 'ESTUDIANTE') {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            $estudianteIdReal = $_SESSION['usuario_id'];
+            try {
+                $stmtB = $this->db->prepare("SELECT id FROM estudiantes WHERE correo = :c OR nie = :c OR id = :id LIMIT 1");
+                $stmtB->execute([':c' => $_SESSION['usuario'] ?? '', ':id' => $_SESSION['usuario_id']]);
+                $resB = $stmtB->fetch(PDO::FETCH_ASSOC);
+                if ($resB) {
+                    $estudianteIdReal = $resB['id'];
+                }
+
+                $stmtKardex = $this->db->prepare("SELECT * FROM kardex_historico WHERE estudiante_id = :id ORDER BY anio_lectivo DESC, materia ASC");
+                $stmtKardex->execute([':id' => $estudianteIdReal]);
+                $historialKardex = $stmtKardex->fetchAll(PDO::FETCH_ASSOC);
+
+            } catch (PDOException $e) {
+                $historialKardex = [];
+            }
+
+            $vistaHistorial = __DIR__ . '/../views/mi_historial.php';
+            if (file_exists($vistaHistorial)) {
+                require_once $vistaHistorial;
+            } else {
+                echo "<div style='padding:20px; font-family:sans-serif;'><h3>⚠️ Aviso</h3><p>Falta el archivo de vista <code>views/mi_historial.php</code>.</p></div>";
+            }
+        }
+
+        // =========================================================================
+        // MÓDULO: HISTORIAL DE ALUMNOS (ADMIN Y DOCENTE ORIENTADOR)
+        // =========================================================================
+        public function historialAlumnos() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR', 'DOCENTE'])) {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            $rol = strtoupper($_SESSION['rol'] ?? '');
+            $estudiantesLista = [];
+            $gradoFijo = '';
+            $seccionFija = '';
+
+            if ($rol === 'DOCENTE') {
+                try {
+                    $stmtDoc = $this->db->prepare("SELECT grado_orientacion FROM usuarios WHERE id = :id LIMIT 1");
+                    $stmtDoc->execute([':id' => $_SESSION['usuario_id']]);
+                    $docInfo = $stmtDoc->fetch(PDO::FETCH_ASSOC);
+
+                    $orientacion = trim($docInfo['grado_orientacion'] ?? '');
+                    if (!empty($orientacion) && strtolower($orientacion) !== 'ninguno') {
+                        if (strpos($orientacion, '-') !== false) {
+                            $partes = explode('-', $orientacion, 2);
+                            $gradoFijo = trim($partes[0]);
+                            $seccionFija = trim(str_ireplace(['Sección', 'Seccion'], '', $partes[1]));
+                        } else {
+                            $gradoFijo = $orientacion;
+                        }
+                    }
+
+                    if (!empty($gradoFijo)) {
+                        $sql = "SELECT id, nie, nombre, apellido, grado, seccion, foto, estado_academico 
+                                FROM estudiantes 
+                                WHERE grado = :g ";
+                        $params = [':g' => $gradoFijo];
+                        
+                        if (!empty($seccionFija)) {
+                            $sql .= "AND (seccion LIKE :s OR seccion LIKE :s2) ";
+                            $params[':s'] = "%$seccionFija%";
+                            $params[':s2'] = "%" . strtolower($seccionFija) . "%";
+                        }
+                        $sql .= "ORDER BY apellido ASC, nombre ASC";
+                        
+                        $stmt = $this->db->prepare($sql);
+                        $stmt->execute($params);
+                        $estudiantesLista = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                } catch (PDOException $e) { 
+                    $estudiantesLista = []; 
+                }
+            } else {
+                try {
+                    $stmt = $this->db->query("SELECT id, nie, nombre, apellido, grado, seccion, foto, estado_academico FROM estudiantes ORDER BY apellido ASC, nombre ASC");
+                    $estudiantesLista = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) { 
+                    $estudiantesLista = []; 
+                }
+            }
+
+            $vistaDirectorioHistorial = __DIR__ . '/../views/historial_alumnos.php';
+            if (file_exists($vistaDirectorioHistorial)) {
+                require_once $vistaDirectorioHistorial;
+            } else {
+                echo "Falta vista historial_alumnos.php";
+            }
+        }
+
+        public function verKardex() {
+            if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR', 'DOCENTE'])) {
+                header('Location: index.php?action=dashboard');
+                exit;
+            }
+
+            $estudianteId = intval($_GET['id'] ?? 0);
+            $estudiante = [];
+            $historialKardex = [];
+
+            if ($estudianteId > 0) {
+                try {
+                    $stmt = $this->db->prepare("SELECT * FROM estudiantes WHERE id = :id LIMIT 1");
+                    $stmt->execute([':id' => $estudianteId]);
+                    $estudiante = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+                    $stmtK = $this->db->prepare("SELECT * FROM kardex_historico WHERE estudiante_id = :id ORDER BY anio_lectivo DESC, materia ASC");
+                    $stmtK->execute([':id' => $estudianteId]);
+                    $historialKardex = $stmtK->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {}
+            }
+
+            $vistaKardex = __DIR__ . '/../views/ver_kardex.php';
+            if (file_exists($vistaKardex)) {
+                require_once $vistaKardex;
+            } else {
+                echo "Falta vista ver_kardex.php";
+            }
         }
     }
 }

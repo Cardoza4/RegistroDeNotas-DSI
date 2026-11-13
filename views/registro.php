@@ -5,6 +5,49 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $msg = $_GET['msg'] ?? '';
 $error = $_GET['error'] ?? '';
+
+// Obtener todos los números correlativos actualmente en uso por cada par de iniciales
+$mapaUsados = [];
+try {
+    $dbConn = null;
+    if (isset($this) && isset($this->db) && $this->db) {
+        $dbConn = $this->db;
+    } elseif (class_exists('Conexion')) {
+        $conObj = new Conexion();
+        $dbConn = $conObj->conectar();
+    } elseif (isset($GLOBALS['pdo'])) {
+        $dbConn = $GLOBALS['pdo'];
+    }
+
+    if ($dbConn) {
+        // Limpiar automáticamente registros huérfanos en la tabla estudiantes cuyos usuarios ya fueron eliminados
+        $dbConn->exec("DELETE FROM estudiantes WHERE nie NOT IN (SELECT username FROM usuarios WHERE username IS NOT NULL)");
+
+        $carnets = [];
+        $stmt1 = $dbConn->query("SELECT nie FROM estudiantes WHERE nie IS NOT NULL AND nie != ''");
+        if ($stmt1) {
+            $carnets = array_merge($carnets, $stmt1->fetchAll(PDO::FETCH_COLUMN));
+        }
+        $stmt2 = $dbConn->query("SELECT username FROM usuarios WHERE rol = 'ESTUDIANTE' AND username IS NOT NULL AND username != ''");
+        if ($stmt2) {
+            $carnets = array_merge($carnets, $stmt2->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        foreach ($carnets as $c) {
+            $c = strtoupper(trim(explode('@', $c)[0]));
+            if (preg_match('/^([A-Z]{2})0*([0-9]+)$/', $c, $matches)) {
+                $ini = $matches[1];
+                $num = intval($matches[2]);
+                if (!isset($mapaUsados[$ini])) {
+                    $mapaUsados[$ini] = [];
+                }
+                if (!in_array($num, $mapaUsados[$ini])) {
+                    $mapaUsados[$ini][] = $num;
+                }
+            }
+        }
+    }
+} catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -437,7 +480,7 @@ $error = $_GET['error'] ?? '';
                         <label for="nie">NIE (Carné Único del Alumno) <span class="label-desc">(Autogenerado con iniciales y correlativo)</span></label>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-id-badge"></i>
-                            <input type="text" id="nie" name="nie" placeholder="Ej: ML00001" readonly>
+                            <input type="text" id="nie" name="nie" placeholder="Ej: OG00001" readonly>
                         </div>
                     </div>
 
@@ -496,7 +539,7 @@ $error = $_GET['error'] ?? '';
                         <label for="primer_apellido">Primer Apellido</label>
                         <div class="input-wrapper">
                             <i class="fa-regular fa-user"></i>
-                            <input type="text" id="primer_apellido" name="primer_apellido" placeholder="Ej: Martinez" oninput="actualizarGeneracionCredenciales()" required>
+                            <input type="text" id="primer_apellido" name="primer_apellido" placeholder="Ej: Osorio" oninput="actualizarGeneracionCredenciales()" required>
                         </div>
                     </div>
 
@@ -504,7 +547,7 @@ $error = $_GET['error'] ?? '';
                         <label for="segundo_apellido">Segundo Apellido <span class="label-desc">(Opcional)</span></label>
                         <div class="input-wrapper">
                             <i class="fa-regular fa-user"></i>
-                            <input type="text" id="segundo_apellido" name="segundo_apellido" placeholder="Ej: Lopez" oninput="actualizarGeneracionCredenciales()">
+                            <input type="text" id="segundo_apellido" name="segundo_apellido" placeholder="Ej: Galan" oninput="actualizarGeneracionCredenciales()">
                         </div>
                     </div>
 
@@ -698,7 +741,9 @@ $error = $_GET['error'] ?? '';
                 <?php 
                 if ($error === 'duplicado') {
                     echo 'El identificador o correo autogenerado ya se encuentra asignado a otra cuenta.';
-                } elseif ($error === 'formato_invalido') { echo 'Revisa los formatos ingresados de teléfono, DUI o escalafón.'; } elseif ($error === 'campos_vacios') {
+                } elseif ($error === 'formato_invalido') {
+                    echo 'Revisa los formatos ingresados de teléfono, DUI o escalafón.';
+                } elseif ($error === 'campos_vacios') {
                     echo 'Por favor completa todos los campos requeridos.';
                 } else {
                     echo 'Ocurrió un error al procesar la solicitud en la base de datos.';
@@ -711,6 +756,9 @@ $error = $_GET['error'] ?? '';
     <?php endif; ?>
 
     <script>
+        // Mapa precargado desde PHP con la lista exacta de números en uso por cada inicial
+        const correlativosUsados = <?php echo json_encode($mapaUsados); ?>;
+
         function aplicarMascaraDUI(input) {
             let v = input.value.replace(/\D/g, '').slice(0, 9);
             if (v.length > 8) v = v.slice(0, 8) + '-' + v.slice(8);
@@ -851,12 +899,18 @@ $error = $_GET['error'] ?? '';
                 if (ape1 && ape2) {
                     iniciales = (ape1.charAt(0) + ape2.charAt(0)).toUpperCase();
                 } else if (ape1) {
-                    iniciales = (ape1.slice(0, 2)).toUpperCase();
+                    iniciales = (ape1.charAt(0) + 'X').toUpperCase();
                 }
 
                 let nieGenerado = '';
-                if (iniciales.length >= 2) {
-                    nieGenerado = iniciales + '00001';
+                if (iniciales.length === 2) {
+                    const listaUsados = correlativosUsados[iniciales] || [];
+                    let siguienteNum = 1;
+                    // Buscar el primer correlativo disponible desde 1 (reutilizando eliminados)
+                    while (listaUsados.includes(siguienteNum)) {
+                        siguienteNum++;
+                    }
+                    nieGenerado = iniciales + String(siguienteNum).padStart(5, '0');
                 }
 
                 nieInput.value = nieGenerado;
@@ -879,7 +933,7 @@ $error = $_GET['error'] ?? '';
                     passHidden.value = '';
                 }
 
-                infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Estudiantes</strong>, el NIE se autogenera con las iniciales de ambos apellidos + correlativo de 5 números (ej: <code>' + (nieGenerado || 'ML00001') + '</code>). El usuario institucional es <code>' + (nieGenerado || 'ML00001') + '@inca.edu.sv</code> y su contraseña inicial temporal es <code>' + (nieGenerado || 'ML00001') + '*' + ddmm + '</code>.';
+                infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Estudiantes</strong>, el NIE se autogenera con las iniciales de ambos apellidos + correlativo de 5 números (ej: <code>' + (nieGenerado || 'OG00001') + '</code>). El usuario institucional es <code>' + (nieGenerado || 'OG00001') + '@inca.edu.sv</code> y su contraseña inicial temporal es <code>' + (nieGenerado || 'OG00001') + '*' + ddmm + '</code>.';
             } else if (rol === 'docente') {
                 grupoNie.style.display = 'none';
                 if (grupoGrado) grupoGrado.style.display = 'none';

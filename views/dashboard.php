@@ -307,6 +307,7 @@ try {
         .icon-cyan   { background: #ecfeff; color: #0891b2; }
         .icon-indigo { background: #eef2ff; color: #4f46e5; }
         .icon-gold   { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #b45309; border: 1px solid #fcd34d; }
+        .icon-dark   { background: #1e293b; color: #f8fafc; }
 
         .module-header-text h3 {
             font-size: 1.12rem;
@@ -346,6 +347,7 @@ try {
         .tag-cyan   { background: #ecfeff; color: #0e7490; }
         .tag-indigo { background: #eef2ff; color: #4338ca; }
         .tag-gold   { background: #fffbeb; color: #b45309; border: 1px solid #fef3c7; }
+        .tag-dark   { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
 
         .module-link-arrow {
             font-size: 0.85rem;
@@ -421,7 +423,7 @@ try {
         <div class="welcome-hero">
             <div class="welcome-text">
                 <h1>¡Bienvenido, <?= htmlspecialchars($nombreUsuario) ?>!</h1>
-                <p>Sistema Institucional de Gestión y Control de Evaluaciones Académicas del Instituto Nacional Noé Canjura (INCA).</p>
+                <p>Sistema Institucional de Gestión y Control de Evaluaciones Académicas del Instituto Noé Canjura.</p>
             </div>
             <div>
                 <span class="hero-badge-rol">
@@ -529,6 +531,43 @@ try {
                     </div>
                 </a>
 
+                <!-- PBI-49: TARJETA DE KÁRDEX PARA ADMIN -->
+                <a href="index.php?action=historial_alumnos" class="module-card">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-cyan" style="background:#e0f2fe; color:#0284c7;">
+                                <i class="fa-solid fa-folder-tree"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Historial de Alumnos</h3>
+                                <p>Consulta general del Kárdex y trayectoria académica multianual de todos los estudiantes.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-cyan" style="background:#e0f2fe; color:#0369a1;">Registros</span>
+                        <span class="module-link-arrow">Consultar <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
+                <a href="index.php?action=bitacora_auditoria" class="module-card">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-dark">
+                                <i class="fa-solid fa-fingerprint"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Visor de Bitácora y Auditoría</h3>
+                                <p>Consulta el registro inmutable de cambios en notas, usuarios y matrículas capturados por el sistema.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-dark">Seguridad</span>
+                        <span class="module-link-arrow">Auditar <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
                 <a href="index.php?action=datos_personales" class="module-card">
                     <div>
                         <div class="module-card-top">
@@ -567,6 +606,25 @@ try {
                     </div>
                 </a>
 
+                <!-- PBI-49: NUEVA TARJETA DE KÁRDEX HISTÓRICO PARA ESTUDIANTES -->
+                <a href="index.php?action=mi_historial" class="module-card">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-indigo">
+                                <i class="fa-solid fa-book-bookmark"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mi Historial Académico</h3>
+                                <p>Revisar tu trayectoria escolar y calificaciones consolidadas de años lectivos anteriores.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-indigo">Historial</span>
+                        <span class="module-link-arrow">Consultar <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
                 <a href="index.php?action=datos_personales" class="module-card">
                     <div>
                         <div class="module-card-top">
@@ -586,7 +644,7 @@ try {
                 </a>
 
             <?php else: ?>
-                <!-- ================= TARJETAS EXCLUSIVAS DE DOCENTE (SOLO 3 TARJETAS) ================= -->
+                <!-- ================= TARJETAS EXCLUSIVAS DE DOCENTE ================= -->
                 <a href="index.php?action=gestion_notas" class="module-card">
                     <div>
                         <div class="module-card-top">
@@ -620,6 +678,25 @@ try {
                     <div class="module-card-bottom">
                         <span class="module-tag tag-gold"><i class="fa-solid fa-medal"></i> Excelencia</span>
                         <span class="module-link-arrow">Ver Podio <i class="fa-solid fa-arrow-right"></i></span>
+                    </div>
+                </a>
+
+                <!-- PBI-49: TARJETA DE KÁRDEX PARA DOCENTE ORIENTADOR -->
+                <a href="index.php?action=historial_alumnos" class="module-card">
+                    <div>
+                        <div class="module-card-top">
+                            <div class="module-icon icon-cyan" style="background:#e0f2fe; color:#0284c7;">
+                                <i class="fa-solid fa-folder-tree"></i>
+                            </div>
+                            <div class="module-header-text">
+                                <h3>Mis Alumnos (Kárdex)</h3>
+                                <p>Consultar el Kárdex histórico exclusivamente de los estudiantes de tu grado y sección orientada.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="module-card-bottom">
+                        <span class="module-tag tag-cyan" style="background:#e0f2fe; color:#0369a1;">Orientación</span>
+                        <span class="module-link-arrow">Consultar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </a>
 

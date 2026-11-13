@@ -15,26 +15,25 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>INCA NOTES - Instituto Noé Canjura</title>
+    <!-- Fuentes e Iconos -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
+            --primary: #1d4ed8;
+            --primary-hover: #1e3a8a;
             --bg-body: #f1f5f9;
             --nav-bg: #0b1a30;
-            --card-bg: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            --border: #cbd5e1;
-            --radius: 12px;
-            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
         body {
@@ -43,9 +42,10 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Barra Superior Institucional */
+        /* BARRA SUPERIOR INSTITUCIONAL (Intacta) */
         .institucional-nav {
             background-color: var(--nav-bg);
             color: white;
@@ -87,6 +87,7 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
             font-weight: 800;
             letter-spacing: 0.5px;
             color: #ffffff;
+            margin-bottom: 2px;
         }
 
         .nav-titles p {
@@ -115,10 +116,10 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
         }
 
         .social-icon-btn:hover {
-            background: var(--primary);
+            background: #2563eb;
         }
 
-        /* Contenedor Principal del Login */
+        /* CONTENEDOR PRINCIPAL */
         .main-content {
             flex: 1;
             display: flex;
@@ -127,127 +128,103 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
             padding: 2.5rem 1rem;
         }
 
-        .login-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow);
-            width: 100%;
-            max-width: 480px;
-            padding: 2.5rem 3rem;
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 1.75rem;
-        }
-
-        .login-icon-badge {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: #eff6ff;
-            color: var(--primary);
+        .ues-card {
             display: flex;
-            align-items: center;
+            width: 100%;
+            max-width: 1150px;
+            min-height: 600px;
+            background: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+        }
+
+        /* MITAD IZQUIERDA (Imagen del Águila como portada) */
+        .ues-left {
+            width: 50%;
+            background: #0f172a;
+            position: relative;
+            overflow: hidden;
+            border-right: 1px solid #f1f5f9;
+        }
+
+        .ues-left img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* MITAD DERECHA (Formulario de Login) */
+        .ues-right {
+            width: 50%;
+            padding: 3.5rem 5rem;
+            display: flex;
+            flex-direction: column;
             justify-content: center;
-            margin: 0 auto 1rem;
-            font-size: 1.4rem;
-            border: 1px solid #bfdbfe;
+            background: #ffffff;
         }
 
-        .login-header h1 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--text-main);
-            margin-bottom: 0.35rem;
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
 
-        .login-header p {
-            color: var(--text-muted);
-            font-size: 0.88rem;
-            line-height: 1.4;
+        /* Logo de INCA NOTES arriba del formulario */
+        .app-logo {
+            width: 240px;
+            height: auto;
+            margin: 0 auto;
+            display: block;
         }
 
-        .alert-error {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            color: #991b1b;
-            padding: 0.75rem 1rem;
+        /* Alertas */
+        .alert-box {
+            padding: 0.85rem 1rem;
             border-radius: 8px;
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            margin-bottom: 1.25rem;
+            margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
             gap: 8px;
         }
+        .alert-error { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+        .alert-timeout { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; }
 
-        /* PBI-54: Alerta institucional por inactividad */
-        .alert-timeout {
-            background: #fffbeb;
-            border: 1px solid #fcd34d;
-            color: #92400e;
-            padding: 0.85rem 1rem;
-            border-radius: 8px;
-            font-size: 0.86rem;
-            font-weight: 600;
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            line-height: 1.45;
-        }
-
-        .alert-timeout i {
-            color: #d97706;
-            font-size: 1.05rem;
-            margin-top: 2px;
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-
-        label {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #334155;
-        }
-
+        /* Estilo de Inputs */
         .input-wrapper {
             position: relative;
             display: flex;
             align-items: center;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            margin-bottom: 1.25rem;
+            transition: border-color 0.2s;
+        }
+        
+        .input-wrapper:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
         }
 
-        .input-wrapper i.field-icon {
+        .input-wrapper i.left-icon {
             position: absolute;
-            left: 14px;
+            left: 16px;
             color: #64748b;
-            font-size: 0.95rem;
+            font-size: 1rem;
         }
 
-        input[type="text"],
-        input[type="password"] {
+        .input-wrapper input {
             width: 100%;
-            padding: 0.75rem 2.75rem 0.75rem 2.5rem;
-            border: 1px solid var(--border);
-            border-radius: 8px;
+            padding: 1rem 2.5rem 1rem 2.75rem;
+            border: none;
+            background: transparent;
             font-size: 0.95rem;
             color: var(--text-main);
-            background-color: #f8fafc;
-            transition: all 0.2s;
-        }
-
-        input:focus {
             outline: none;
-            background-color: #ffffff;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
         .toggle-password {
@@ -257,12 +234,19 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
             border: none;
             color: #64748b;
             cursor: pointer;
-            font-size: 0.95rem;
+            font-size: 1rem;
             padding: 4px;
         }
+        .toggle-password:hover { color: var(--text-main); }
 
-        .toggle-password:hover {
-            color: var(--text-main);
+        /* Texto informativo institucional */
+        .info-credenciales {
+            text-align: center;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            line-height: 1.45;
+            padding: 0 10px;
         }
 
         .btn-submit {
@@ -270,35 +254,35 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
             background: var(--primary);
             color: #ffffff;
             border: none;
-            padding: 0.85rem;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 700;
+            padding: 1rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
             transition: background 0.2s;
-            margin-top: 1.5rem;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+            margin-bottom: 1.5rem;
         }
-
-        .btn-submit:hover {
-            background: var(--primary-hover);
-        }
+        .btn-submit:hover { background: var(--primary-hover); }
 
         .login-footer-text {
             text-align: center;
-            margin-top: 1.25rem;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Responsive para móviles */
+        @media (max-width: 900px) {
+            .ues-card { flex-direction: column; max-width: 500px; min-height: auto; }
+            .ues-left { width: 100%; height: 250px; }
+            .ues-right { width: 100%; padding: 2.5rem; }
+            .institucional-nav { padding: 0.8rem 1.5rem; flex-direction: column; gap: 10px; text-align: center; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Barra Institucional Superior -->
+    <!-- BARRA INSTITUCIONAL INCA (Intacta) -->
     <header class="institucional-nav">
         <div class="nav-brand-container">
             <div class="nav-logo-circle">
@@ -316,60 +300,64 @@ $timeoutActivo = isset($_GET['timeout']) && $_GET['timeout'] == '1';
         </div>
     </header>
 
-    <!-- Contenido del Formulario de Inicio de Sesión -->
+    <!-- CONTENEDOR PRINCIPAL - DISEÑO DIVIDIDO -->
     <main class="main-content">
-        <div class="login-card">
-            <div class="login-header">
-                <div class="login-icon-badge">
-                    <i class="fa-solid fa-graduation-cap"></i>
-                </div>
-                <h1>Iniciar Sesión</h1>
-                <p>Ingresa tus credenciales para acceder al sistema institucional</p>
+        <div class="ues-card">
+            
+            <!-- MITAD IZQUIERDA: Imagen de Designer.png (Águila) -->
+            <div class="ues-left">
+                <img src="img/Designer.png" alt="Instituto Noé Canjura" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=0f172a&color=fff&size=500'">
             </div>
 
-            <!-- PBI-54 Criterio 3: Alerta institucional visible tras expulsión por inactividad -->
-            <?php if ($timeoutActivo): ?>
-                <div class="alert-timeout">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>Tu sesión ha finalizado por motivos de seguridad tras 5 minutos de inactividad. Por favor, inicia sesión nuevamente.</span>
+            <!-- MITAD DERECHA: Formulario de Login con logo_inca.png arriba -->
+            <div class="ues-right">
+                <div class="form-header">
+                    <img src="img/logo_inca.png" alt="INCA NOTES Sistema de Registro" class="app-logo" onerror="this.src='https://ui-avatars.com/api/?name=INCA+NOTES&background=fff&color=1d4ed8'">
                 </div>
-            <?php endif; ?>
 
-            <?php if (!empty($errorMsg)): ?>
-                <div class="alert-error">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <span><?= htmlspecialchars($errorMsg) ?></span>
-                </div>
-            <?php endif; ?>
-
-            <form action="index.php?action=login" method="POST">
-                <div class="form-group">
-                    <label for="usuario">Usuario / NIE / Carné:</label>
-                    <div class="input-wrapper">
-                        <i class="fa-solid fa-user field-icon"></i>
-                        <input type="text" id="usuario" name="usuario" placeholder="Ej: Administrador1" required autocomplete="username">
+                <?php if ($timeoutActivo): ?>
+                    <div class="alert-box alert-timeout">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        Tu sesión ha finalizado por inactividad.
                     </div>
-                </div>
+                <?php endif; ?>
 
-                <div class="form-group">
-                    <label for="password">Contraseña:</label>
+                <?php if (!empty($errorMsg)): ?>
+                    <div class="alert-box alert-error">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <?= htmlspecialchars($errorMsg) ?>
+                    </div>
+                <?php endif; ?>
+
+                <form action="index.php?action=login" method="POST">
+                    
                     <div class="input-wrapper">
-                        <i class="fa-solid fa-lock field-icon"></i>
-                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
-                        <button type="button" class="toggle-password" id="btnTogglePass" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar Contraseña">
+                        <i class="fa-regular fa-user left-icon"></i>
+                        <input type="text" id="usuario" name="usuario" placeholder="Usuario / NIE" required autocomplete="username">
+                    </div>
+
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-key left-icon"></i>
+                        <input type="password" id="password" name="password" placeholder="Contraseña" required autocomplete="current-password">
+                        <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar Contraseña">
                             <i class="fa-solid fa-eye" id="iconEye"></i>
                         </button>
                     </div>
+
+                    <!-- Texto institucional -->
+                    <p class="info-credenciales">Plataforma exclusiva para alumnos y docentes del INCA, si no conoce sus credenciales acercarse a Administración Académica</p>
+
+                    <button type="submit" class="btn-submit">
+                        Iniciar sesión (ingresar)
+                    </button>
+                    
+                </form>
+
+                <div class="login-footer-text">
+                    Ingrese con su usuario institucional. No necesita<br>escribir <strong>@inca.edu.sv</strong>
                 </div>
-
-                <button type="submit" class="btn-submit">
-                    <i class="fa-solid fa-right-to-bracket"></i> Ingresar al Sistema
-                </button>
-            </form>
-
-            <div class="login-footer-text">
-                Acceso restringido. Las cuentas de estudiantes y docentes son administradas institucionalmente.
             </div>
+            
         </div>
     </main>
 

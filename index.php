@@ -49,7 +49,7 @@ $controller = new AcademicoController();
 // PBI-54 (CRITERIO 1): MONITOREO INTERACTIVO GLOBAL EN CLIENTE (FRONTEND)
 // Se registra al finalizar la carga de cualquier vista autenticada
 // =========================================================================
-if (isset($_SESSION['usuario_id']) && !in_array($action, ['login', 'logout'])) {
+if (isset($_SESSION['usuario_id']) && !in_array($action, ['login', 'logout', 'obtener_nie'])) {
     register_shutdown_function(function() {
         // Solo inyectar en respuestas de vistas HTML (no en redirecciones puras)
         if (!headers_sent() && http_response_code() >= 300 && http_response_code() < 400) {
@@ -90,7 +90,6 @@ switch ($action) {
     // --- AUTENTICACIÓN Y DASHBOARD ---
     case 'login':
         $controller->login();
-        // Si acaba de iniciar sesión con éxito, inicializar marca de tiempo
         if (isset($_SESSION['usuario_id'])) {
             $_SESSION['ultimo_acceso'] = time();
         }
@@ -120,7 +119,7 @@ switch ($action) {
         $controller->dashboard();
         break;
 
-    // --- GESTIÓN DE CALIFICACIONES (PBI-12, PBI-15, PBI-39, PBI-44) ---
+    // --- GESTIÓN DE CALIFICACIONES (PBI-12, PBI-15, PBI-39, PBI-44, PBI-47) ---
     case 'gestion_notas':
     case 'control_notas':
         $controller->gestionNotas();
@@ -129,18 +128,23 @@ switch ($action) {
     case 'guardar_nota':
         $controller->guardarNota();
         break;
+        
+       case 'mi_historial':
+        $controller->miHistorial();
+        break;
 
-    // PBI-39: Ruta explícita para registrar y sustituir notas de recuperación
     case 'guardar_recuperacion':
         $controller->guardarRecuperacion();
         break;
 
-    // PBI-15: Ruta directa para anulación segura de registros con auditoría
     case 'anular_nota':
         $controller->anularNota();
         break;
 
-    // PBI-46: Cuadro de Honor y Ranking Automático por Sección
+    case 'cambiar_estado_periodo':
+        $controller->cambiarEstadoPeriodo();
+        break;
+
     case 'cuadro_honor':
         $controller->cuadroHonor();
         break;
@@ -182,6 +186,10 @@ switch ($action) {
         $controller->usuariosLista();
         break;
 
+    case 'guardar_usuario':
+        $controller->guardarUsuario();
+        break;
+
     case 'actualizar_usuario_directorio':
         $controller->actualizarUsuarioDirectorio();
         break;
@@ -193,6 +201,24 @@ switch ($action) {
     case 'registro':
     case 'registro_usuarios':
         $controller->registroUsuarios();
+        break;
+
+    case 'obtener_nie':
+        $controller->obtenerSiguienteNie();
+        break;
+
+    // --- PBI-43: VISOR DE BITÁCORA Y AUDITORÍA EN PANEL ADMIN ---
+    case 'bitacora_auditoria':
+        if (!isset($_SESSION['usuario_id']) || !in_array(strtoupper($_SESSION['rol'] ?? ''), ['ADMIN', 'ADMINISTRADOR'])) {
+            header('Location: index.php?action=dashboard');
+            exit;
+        }
+        $bitacoraPath = __DIR__ . '/views/bitacora_auditoria.php';
+        if (file_exists($bitacoraPath)) {
+            include $bitacoraPath;
+        } else {
+            die("Error crítico: No se encontró la vista en views/bitacora_auditoria.php");
+        }
         break;
 
     // --- PERFIL Y CONFIGURACIÓN PERSONAL ---
@@ -213,6 +239,21 @@ switch ($action) {
     case 'actualizar_password':
         $controller->actualizarPassword();
         break;
+        
+        case 'ejecutar_cierre_anual':
+        $controller->ejecutarCierreAnual();
+        break;
+        
+        case 'historial_alumnos':
+        $controller->historialAlumnos();
+        break;
+        
+    case 'ver_kardex':
+        $controller->verKardex();
+        break;
+        case 'procesar_promocion_manual':
+    $controller->procesarPromocionManual();
+    break;
 
     // --- RUTA POR DEFECTO ---
     default:

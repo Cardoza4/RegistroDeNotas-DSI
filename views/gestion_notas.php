@@ -38,6 +38,8 @@ if (!isset($conexionDB)) {
 
 $notasBD = [];
 $notasDetalleBD = [];
+$mapaEstadosActas = $estadosPeriodos ?? [];
+
 if ($conexionDB instanceof PDO) {
     try {
         $sql = "SELECT estudiante_id, materia, periodo, act1, act2, examen, nota_periodo, 
@@ -51,7 +53,6 @@ if ($conexionDB instanceof PDO) {
                 $mat = trim($row['materia']);
                 $per = (int)$row['periodo'];
 
-                // Solo asentar si el registro tiene evaluaciones vigentes (no anulado)
                 $tieneCalificacion = ($row['nota_periodo'] !== null || $row['act1'] !== null || $row['act2'] !== null || $row['examen'] !== null);
                 if ($tieneCalificacion) {
                     $val = round((float)$row['final_calc'], 2);
@@ -66,6 +67,21 @@ if ($conexionDB instanceof PDO) {
                         'es_recuperada'           => (int)($row['es_recuperada'] ?? 0),
                         'modificado_por'          => $row['modificado_por'],
                         'fecha_modificacion'      => $row['fecha_modificacion']
+                    ];
+                }
+            }
+        }
+
+        // PBI-47: Cargar los estados de las actas granulares (Materia, Periodo, Grado, Sección)
+        if (empty($mapaEstadosActas)) {
+            $stmtActas = $conexionDB->query("SELECT materia, periodo, grado, seccion, estado, motivo_reapertura, fecha_actualizacion FROM control_periodos_actas");
+            if ($stmtActas) {
+                while ($fA = $stmtActas->fetch(PDO::FETCH_ASSOC)) {
+                    $clave = trim($fA['materia']) . '_' . (int)$fA['periodo'] . '_' . trim($fA['grado']) . '_' . trim($fA['seccion']);
+                    $mapaEstadosActas[$clave] = [
+                        'estado' => strtoupper($fA['estado']),
+                        'motivo' => $fA['motivo_reapertura'],
+                        'fecha'  => $fA['fecha_actualizacion']
                     ];
                 }
             }
@@ -124,8 +140,9 @@ $notasCarlosBoleta = [
         .btn-register-top { background: var(--primary); color: white; padding: 0.65rem 1.25rem; border-radius: 8px; text-decoration: none; font-size: 0.88rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background 0.2s; }
         .btn-register-top:hover { background: #1d4ed8; }
 
-        .filters-bar { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 1rem; display: flex; gap: 0.85rem; align-items: center; margin-bottom: 1.75rem; flex-wrap: wrap; }
-        .filters-bar select, .filters-bar input { padding: 0.55rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: white; font-size: 0.88rem; color: var(--text-main); outline: none; }
+        .filters-bar { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 1rem; display: flex; gap: 0.85rem; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+        .filters-bar select, .filters-bar input { padding: 0.55rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: white; font-size: 0.88rem; color: var(--text-main); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+        .filters-bar select.filtro-alerta { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18); }
         .btn-filter { background: #334155; color: white; border: none; padding: 0.55rem 1.25rem; border-radius: 8px; font-weight: 600; font-size: 0.88rem; cursor: pointer; }
         
         .btn-matriz-toggle { background: #0f172a; color: white; border: none; padding: 0.55rem 1.25rem; border-radius: 8px; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
@@ -136,6 +153,16 @@ $notasCarlosBoleta = [
         .btn-asistencia:hover { background: #0369a1; }
         .btn-comite { background: #7c3aed; color: white; border: none; padding: 0.55rem 1.25rem; border-radius: 8px; font-weight: 600; font-size: 0.88rem; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s; }
         .btn-comite:hover { background: #6d28d9; }
+
+        .sub-tabs-nav { display: flex; gap: 0.5rem; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .sub-tab-link { background: transparent; border: none; padding: 0.75rem 1.25rem; font-size: 0.9rem; font-weight: 700; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; transition: all 0.2s ease; }
+        .sub-tab-link:hover { color: var(--text-main); background: #f8fafc; }
+        .sub-tab-link.active { color: var(--primary); border-bottom-color: var(--primary); background: #eff6ff; }
+        .sub-tab-pill { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: #e2e8f0; color: #334155; font-weight: 800; }
+        .sub-tab-link.active .sub-tab-pill { background: #dbeafe; color: #1d4ed8; }
+        .vista-sub-tab { display: none; animation: fadeSubTab 0.18s ease-out; }
+        .vista-sub-tab.active { display: block; }
+        @keyframes fadeSubTab { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 
         .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -150,6 +177,10 @@ $notasCarlosBoleta = [
         .badge-reprobado { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .badge-sin-calificar { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
 
+        .badge-acta-estado { padding: 4px 10px; border-radius: 20px; font-size: 0.76rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 6px; }
+        .acta-abierta { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+        .acta-cerrada { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
         .btn-action-badge { padding: 6px 12px; border-radius: 6px; color: white; text-decoration: none; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; }
         .btn-notas { background: #10b981; cursor: pointer; border: none; }
         .btn-recup { background: #ea580c; cursor: pointer; border: none; }
@@ -161,10 +192,19 @@ $notasCarlosBoleta = [
         .btn-back { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); text-decoration: none; font-weight: 600; margin-bottom: 1.25rem; font-size: 0.9rem; }
 
         /* MATRIZ PBI-12 */
-        .matriz-container { display: none; background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+        .matriz-container { display: block; background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; }
         .matriz-header-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
         .input-matriz-nota { width: 90px; padding: 0.45rem 0.6rem; border: 1px solid #94a3b8; border-radius: 6px; text-align: center; font-weight: 700; font-size: 0.9rem; background: #ffffff; color: var(--text-main); }
+        .input-matriz-nota:disabled, .input-matriz-nota[readonly] { background: #f1f5f9; color: #64748b; border-color: #cbd5e1; cursor: not-allowed; }
         .btn-guardar-matriz { background: #059669; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 8px; font-weight: 800; font-size: 0.9rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-guardar-matriz:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        .btn-bloqueo-acta { padding: 0.7rem 1.3rem; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
+        .btn-cerrar-acta { background: #dc2626; color: white; }
+        .btn-cerrar-acta:hover { background: #b91c1c; }
+        .btn-reabrir-acta { background: #d97706; color: white; }
+        .btn-reabrir-acta:hover { background: #b45309; }
+        .btn-bloqueo-acta:disabled { background: #cbd5e1; color: #475569; cursor: not-allowed; }
 
         /* MODALES */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(3px); z-index: 1000; align-items: center; justify-content: center; padding: 1rem; }
@@ -176,13 +216,21 @@ $notasCarlosBoleta = [
         .form-grid-modal { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
         .form-group-modal { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem; }
         .form-group-modal label { font-size: 0.82rem; font-weight: 700; color: #334155; }
-        .form-group-modal input, .form-group-modal select { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #f8fafc; color: var(--text-main); font-weight: 600; }
+        .form-group-modal input, .form-group-modal select, .form-group-modal textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #f8fafc; color: var(--text-main); font-weight: 600; }
+        .form-group-modal input:disabled, .form-group-modal input[readonly] { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
         .nota-final-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0; }
         .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem; }
         .btn-modal-cancel { background: #f1f5f9; color: #334155; border: none; padding: 0.75rem 1.25rem; border-radius: 8px; font-weight: 700; cursor: pointer; }
         .btn-modal-save { background: #059669; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-modal-save:disabled { background: #94a3b8; cursor: not-allowed; }
         .btn-modal-anular { background: #dc2626; color: white; border: none; padding: 0.75rem 1.25rem; border-radius: 8px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-modal-anular:hover { background: #b91c1c; }
+        .btn-modal-anular:disabled { background: #94a3b8; cursor: not-allowed; }
+
+        @media print {
+            .sub-tabs-nav, .filters-bar, .btn-register-top, .admin-tabs, .btn-back, .navbar {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -202,7 +250,6 @@ $notasCarlosBoleta = [
     <div class="container">
         <a href="index.php?action=dashboard" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Volver al Inicio</a>
         
-        <!-- Pestañas Administrativas: Ambas Visibles -->
         <div class="admin-tabs">
             <a href="index.php?action=gestion_notas" class="admin-tab active">
                 <i class="fa-solid fa-graduation-cap"></i> Control de Alumnos y Notas
@@ -213,26 +260,60 @@ $notasCarlosBoleta = [
         </div>
 
         <div class="card">
-            <?php if (!empty($msg)): ?>
+            <?php if (!empty($msg) && $msg !== 'cierre_anual_exito'): ?>
                 <div style="background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>
                         <?php 
-                        if ($msg === 'nota_anulada_exito') echo '¡Calificación anulada de forma segura! El periodo se restableció a "Sin calificar" y se guardó la traza de auditoría.';
+                        if ($msg === 'nota_anulada_exito') echo '¡Calificación anulada de forma segura! El periodo se restableció a "Sin calificar".';
                         elseif ($msg === 'recuperacion_exitosa') echo '¡Evaluación de recuperación registrada y nota sustituida con éxito!';
                         elseif ($msg === 'matriz_guardada') echo '¡Calificaciones de toda la sección guardadas exitosamente en una sola transacción!';
                         elseif ($msg === 'estudiante_actualizado') echo '¡Expediente del estudiante actualizado con éxito!';
                         elseif ($msg === 'matricula_exitosa') echo '¡Estudiante matriculado con éxito!';
+                        elseif ($msg === 'estado_periodo_actualizado') echo '¡Estado del acta oficial actualizado con éxito con registro en bitácora (PBI-47)!';
+                        elseif ($msg === 'promocion_exitosa') echo '¡Matrícula exitosa! El estudiante ha sido inscrito en el nuevo grado para el próximo año lectivo con su matriz limpia.';
                         else echo '¡Calificación guardada y métricas actualizadas con éxito!';
                         ?>
                     </span>
                 </div>
             <?php endif; ?>
 
-            <?php if (isset($_GET['error']) && $_GET['error'] === 'no_reprobado'): ?>
+            <?php if (isset($_GET['error']) && $_GET['error'] === 'periodo_cerrado'): ?>
+                <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Acción bloqueada: El periodo evaluativo para esta sección se encuentra CERRADO oficialmente. No se permiten alteraciones.</span>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_GET['error']) && $_GET['error'] === 'motivo_requerido'): ?>
                 <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Acción bloqueada: La recuperación se habilita exclusivamente para alumnos con nota inferior a 6.0 (Criterio PBI-39).</span>
+                    <span>Para autorizar una reapertura extraordinaria de un acta cerrada, debe registrar obligatoriamente el motivo justificado.</span>
+                </div>
+            <?php endif; ?>
+
+            <!-- PBI-49: Alertas de Éxito / Error para el Cierre Anual -->
+            <?php if (isset($_GET['msg']) && $_GET['msg'] === 'cierre_anual_exito'): ?>
+                <div style="background:#d1fae5; border:1px solid #a7f3d0; color:#065f46; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    <span>¡Cierre Anual por Sección ejecutado con éxito! Las calificaciones fueron consolidadas en el Kárdex, los alumnos promovidos y las actas de la sección están listas para el nuevo año escolar.</span>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (isset($_GET['error']) && $_GET['error'] === 'cierre_anual_fallo'): ?>
+                <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Error al ejecutar el Cierre Anual. Por favor, revise la integridad de la base de datos o contacte a soporte técnico.</span>
+                </div>
+            <?php elseif (isset($_GET['error']) && $_GET['error'] === 'grado_seccion_requerido'): ?>
+                <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Debe seleccionar obligatoriamente el Grado y la Sección para ejecutar el cierre anual.</span>
+                </div>
+            <?php elseif (isset($_GET['error']) && $_GET['error'] === 'sin_estudiantes_seccion'): ?>
+                <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem; font-weight:600; margin-bottom:1.5rem; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>No se encontraron estudiantes activos en el grado y sección seleccionados para realizar el cierre.</span>
                 </div>
             <?php endif; ?>
 
@@ -241,14 +322,26 @@ $notasCarlosBoleta = [
                     <h2>Control de Matrícula y Notas de la Institución</h2>
                     <p>Visualiza, inscribe, modifica expedientes y gestiona calificaciones oficiales.</p>
                 </div>
-                <a href="index.php?action=registro" class="btn-register-top">
-                    <i class="fa-solid fa-user-plus"></i> Inscribir Nuevo Estudiante
-                </a>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn-register-top" style="background:#dc2626; border:none; cursor:pointer;" onclick="document.getElementById('modalCierreAnual').style.display='flex'">
+                        <i class="fa-solid fa-calendar-check"></i> Cierre de Año Lectivo
+                    </button>
+                    <a href="index.php?action=registro" class="btn-register-top">
+                        <i class="fa-solid fa-user-plus"></i> Inscribir Nuevo Estudiante
+                    </a>
+                </div>
             </div>
 
             <!-- Filtros principales -->
             <div class="filters-bar">
-                <input type="text" id="input_buscar_pbi21" placeholder="🔍 Buscar por NIE o Nombre..." style="min-width: 200px;">
+                <!-- Selector de Año Lectivo Multianual (Por defecto 2026, con opción a 2027) -->
+                <select name="anio_lectivo_filtro" id="selectAnioLectivo" style="font-weight: 700; background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+                    <option value="2026" selected>📅 Año Lectivo: 2026 (Actual)</option>
+                    <option value="2027">📅 Año Lectivo: 2027 (Próximo)</option>
+                    <option value="2028">📅 Año Lectivo: 2028</option>
+                </select>
+
+                <input type="text" id="input_buscar_pbi21" placeholder="🔍 Buscar por NIE o Nombre..." style="min-width: 180px;">
                 <select name="grado" id="selectGrado">
                     <option value="">-- Filtrar por Grado --</option>
                     <option value="1° Grado">1° Grado</option><option value="2° Grado">2° Grado</option><option value="3° Grado">3° Grado</option>
@@ -287,21 +380,260 @@ $notasCarlosBoleta = [
                 <a href="#" id="btnLimpiarFiltros" style="color: var(--text-muted); text-decoration: none; font-size: 0.88rem; margin-left: auto;">Limpiar Filtros</a>
             </div>
 
-            <!-- MATRIZ DE CALIFICACIÓN POR SECCIÓN (PBI-12) -->
-            <div class="matriz-container" id="bloqueMatrizPBI12">
-                <form action="index.php?action=guardar_nota" method="POST" id="formMatrizSeccion">
-                    <input type="hidden" name="modo_matriz" value="1">
-                    <div class="matriz-header-bar">
-                        <div>
-                            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                                <i class="fa-solid fa-table-list" style="color: var(--primary);"></i> Matriz de Calificación Trimestral por Sección
-                            </h3>
-                            <p style="font-size: 0.82rem; color: var(--text-muted);">Ponderación automática: Actividad 1 (35%) + Actividad 2 (35%) + Examen (30%) • Rango: 0.00 a 10.00</p>
-                        </div>
-                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <!-- BARRA DE PESTAÑAS INTERNAS -->
+            <div class="sub-tabs-nav">
+                <button type="button" class="sub-tab-link active" id="btnTabNomina" onclick="cambiarPestanaInterna('nomina')">
+                    <i class="fa-solid fa-users"></i> Lista de Alumnos y Notas
+                    <span class="sub-tab-pill" id="badgeConteoAlumnos"><?= count($listaEstudiantes) ?></span>
+                </button>
+                <button type="button" class="sub-tab-link" id="btnTabMatriz" onclick="cambiarPestanaInterna('matriz')">
+                    <i class="fa-solid fa-table-cells"></i> Ingreso de Notas (Matriz por Sección)
+                    <span class="sub-tab-pill">Trimestral</span>
+                </button>
+                <button type="button" class="sub-tab-link" id="btnTabGraficos" onclick="cambiarPestanaInterna('graficos')">
+                    <i class="fa-solid fa-chart-pie"></i> Gráficos de Rendimiento
+                    <span class="sub-tab-pill">Estadísticas</span>
+                </button>
+            </div>
+
+            <!-- PESTAÑA 1: TABLA PRINCIPAL DE ESTUDIANTES -->
+            <div id="vistaTabNomina" class="vista-sub-tab active">
+                <div class="table-responsive">
+                    <table id="tablaPrincipalEstudiantes">
+                        <thead>
+                            <tr>
+                                <th>NIE</th>
+                                <th>Estudiante</th>
+                                <th>Grado/Sección</th>
+                                <th id="th_materia_activa">ASIGNATURA</th>
+                                <th style="text-align: center;" id="th_promedio_activo">PROMEDIO</th>
+                                <th style="text-align: center;">CONDICIÓN</th>
+                                <th style="text-align: right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($listaEstudiantes)): ?>
+                                <?php foreach ($listaEstudiantes as $est): 
+                                    $eId = (int)$est['id'];
+                                    $nombreCompleto = strtolower(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''));
+                                    $gradoEstudiante = trim($est['grado'] ?? '');
+                                    $seccionEstudiante = trim($est['seccion'] ?? '');
+                                    $nombreFormateado = trim(($est['apellido'] ?? '') . ', ' . ($est['nombre'] ?? ''));
+                                    
+                                    $estadoDB = strtoupper(trim($est['estado_academico'] ?? 'ACTIVO'));
+                                    if ($estadoDB === '') $estadoDB = 'ACTIVO';
+
+                                    $notasEstudiante = $notasBD[$eId] ?? [];
+                                    if (empty($notasEstudiante) && (strpos($nombreCompleto, 'carlos') !== false && strpos($nombreCompleto, 'martinez') !== false)) {
+                                        $notasEstudiante = $notasCarlosBoleta;
+                                    }
+
+                                    $jsonNotas = htmlspecialchars(json_encode($notasEstudiante), ENT_QUOTES, 'UTF-8');
+                                    $jsonDetalle = htmlspecialchars(json_encode($notasDetalleBD[$eId] ?? []), ENT_QUOTES, 'UTF-8');
+                                ?>
+                                    <tr data-estudiante-id="<?= $eId ?>" 
+                                        data-nie="<?= htmlspecialchars($est['nie'] ?? 'N/D') ?>"
+                                        data-nombre="<?= htmlspecialchars($nombreFormateado) ?>"
+                                        data-grado="<?= htmlspecialchars($gradoEstudiante) ?>" 
+                                        data-seccion="<?= htmlspecialchars($seccionEstudiante) ?>" 
+                                        data-estado="<?= htmlspecialchars($estadoDB) ?>"
+                                        data-notas="<?= $jsonNotas ?>"
+                                        data-detalle="<?= $jsonDetalle ?>">
+                                        <td><strong><?= htmlspecialchars($est['nie'] ?? 'N/D') ?></strong></td>
+                                        <td>
+                                            <div class="user-cell">
+                                                <div class="user-avatar-circle">
+                                                    <?php 
+                                                    $fNom = basename($est['foto'] ?? '');
+                                                    if (!empty($fNom) && file_exists(__DIR__ . '/../uploads/' . $fNom)): 
+                                                    ?>
+                                                        <img src="uploads/<?= htmlspecialchars($fNom) ?>" alt="Foto">
+                                                    <?php else: ?>
+                                                        <i class="fa-solid fa-user"></i>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <span class="span-nombre-est"><?= htmlspecialchars($nombreFormateado) ?></span>
+                                            </div>
+                                        </td>
+                                        <td><?= htmlspecialchars($gradoEstudiante . ' - ' . $seccionEstudiante) ?></td>
+                                        <td class="col-materia-est">Promedio General</td>
+                                        <td style="text-align: center; font-weight: 800;" class="col-promedio-est">0.00</td>
+                                        <td style="text-align: center;" class="col-condicion-est">
+                                            <?php if ($estadoDB === 'PROMOVIDO'): ?>
+                                                <span class="badge-condicion badge-aprobado">PROMOVIDO</span>
+                                            <?php elseif ($estadoDB === 'RETENIDO'): ?>
+                                                <span class="badge-condicion badge-reprobado">RETENIDO</span>
+                                            <?php else: ?>
+                                                <span class="badge-condicion badge-sin-calificar"><?= htmlspecialchars($estadoDB) ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="text-align: right; white-space: nowrap;">
+                                            <!-- BOTÓN DE MATRÍCULA MANUAL (Se muestra tras el cierre) -->
+                                            <?php if (in_array($estadoDB, ['PROMOVIDO', 'RETENIDO', 'SIN CALIFICAR'])): ?>
+                                                <button type="button" class="btn-action-badge" style="background: #7c3aed;" title="Inscribir al Año Inmediato Superior (2027)" 
+                                                    onclick="abrirModalPromocion('<?= $eId ?>', '<?= htmlspecialchars($nombreFormateado, ENT_QUOTES) ?>', '<?= $estadoDB ?>', '<?= htmlspecialchars($gradoEstudiante, ENT_QUOTES) ?>')">
+                                                    <i class="fa-solid fa-arrow-turn-up"></i> Inscribir
+                                                </button>
+                                            <?php endif; ?>
+
+                                            <button type="button" class="btn-action-badge btn-notas" onclick="abrirModalNotas('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>', '<?= htmlspecialchars($gradoEstudiante, ENT_QUOTES) ?>', '<?= htmlspecialchars($seccionEstudiante, ENT_QUOTES) ?>')">
+                                                <i class="fa-solid fa-star"></i> Notas
+                                            </button>
+                                            <button type="button" class="btn-action-badge btn-recup" title="Registrar Nota de Recuperación" onclick="abrirModalRecuperacion('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>', '<?= htmlspecialchars($gradoEstudiante, ENT_QUOTES) ?>', '<?= htmlspecialchars($seccionEstudiante, ENT_QUOTES) ?>')">
+                                                <i class="fa-solid fa-arrow-up-right-dots"></i> Recuperación
+                                            </button>
+                                            <a href="index.php?action=boleta_notas&estudiante_id=<?= $est['id'] ?>" class="btn-action-badge btn-boleta" title="Boleta"><i class="fa-solid fa-file-lines"></i></a>
+                                            <a href="index.php?action=editar_estudiante&id=<?= $est['id'] ?>" class="btn-action-badge btn-edit-est" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                                            <a href="index.php?action=eliminar_usuario&id=<?= $est['id'] ?>" class="btn-action-badge btn-del-est" title="Eliminar" onclick="return confirm('¿Eliminar estudiante?');"><i class="fa-solid fa-trash"></i></a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay estudiantes matriculados registrados.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 2: MATRIZ DE CALIFICACIÓN POR SECCIÓN (PBI-12 + PBI-47 GRANULAR) -->
+            <div id="vistaTabMatriz" class="vista-sub-tab">
+                <div class="matriz-container" id="bloqueMatrizPBI12">
+                    <form action="index.php?action=guardar_nota" method="POST" id="formMatrizSeccion">
+                        <input type="hidden" name="modo_matriz" value="1">
+                        <input type="hidden" name="matriz_grado" id="inputHiddenMatrizGrado" value="">
+                        <input type="hidden" name="matriz_seccion" id="inputHiddenMatrizSeccion" value="">
+
+                        <div class="matriz-header-bar">
                             <div>
-                                <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Asignatura:</label>
-                                <select name="materia" id="matrizMateria" onchange="cargarValoresMatriz()" style="padding: 0.45rem 0.8rem; border: 1px solid #94a3b8; border-radius: 6px; font-weight: 700; background: #fff;">
+                                <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-table-list" style="color: var(--primary);"></i> Matriz de Calificación Trimestral por Sección
+                                </h3>
+                                <p style="font-size: 0.82rem; color: var(--text-muted);">Ponderación automática: Actividad 1 (35%) + Actividad 2 (35%) + Examen (30%) • Rango: 0.00 a 10.00</p>
+                            </div>
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                <div>
+                                    <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Asignatura:</label>
+                                    <select name="materia" id="matrizMateria" onchange="cargarValoresMatriz()" style="padding: 0.45rem 0.8rem; border: 1px solid #94a3b8; border-radius: 6px; font-weight: 700; background: #fff;">
+                                        <option value="Matemática">Matemática</option>
+                                        <option value="Lenguaje y Literatura">Lenguaje y Literatura</option>
+                                        <option value="Estudios Sociales y Cívica">Estudios Sociales y Cívica</option>
+                                        <option value="Ciencia y Tecnología">Ciencia y Tecnología</option>
+                                        <option value="Idioma Extranjero (Inglés)">Idioma Extranjero (Inglés)</option>
+                                        <option value="Educación Física">Educación Física</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Periodo:</label>
+                                    <select name="periodo" id="matrizPeriodo" onchange="cargarValoresMatriz()" style="padding: 0.45rem 0.8rem; border: 1px solid #94a3b8; border-radius: 6px; font-weight: 700; background: #fff;">
+                                        <option value="1">Periodo 1</option>
+                                        <option value="2">Periodo 2</option>
+                                        <option value="3">Periodo 3</option>
+                                        <option value="4" id="optMatrizPeriodo4">Periodo 4</option>
+                                    </select>
+                                </div>
+
+                                <!-- PBI-47: Badge de Estado del Acta Oficial por Sección -->
+                                <div style="display: flex; flex-direction: column; justify-content: center; margin-top: 14px;">
+                                    <span id="badgeEstadoActaMatriz" class="badge-acta-estado acta-abierta">
+                                        <i class="fa-solid fa-lock-open"></i> ACTA ABIERTA
+                                    </span>
+                                </div>
+
+                                <!-- PBI-47: Botón para Cerrar Acta o Reabrirla con Motivo en esa Sección -->
+                                <div style="margin-top: 14px;">
+                                    <button type="button" id="btnAccionActaMatriz" class="btn-bloqueo-acta btn-cerrar-acta" onclick="gestionarCierreOReaperturaActa()">
+                                        <i class="fa-solid fa-stamp"></i> Asentar y Cerrar Sección
+                                    </button>
+                                </div>
+
+                                <div style="margin-top: 14px;">
+                                    <button type="submit" id="btnSubmitMatriz" class="btn-guardar-matriz">
+                                        <i class="fa-solid fa-floppy-disk"></i> Guardar Sección
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Banner Informativo si el acta de la sección está cerrada -->
+                        <div id="bannerActaCerradaMatriz" style="display:none; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.75rem 1rem; border-radius:8px; font-size:0.85rem; font-weight:700; margin-bottom:1rem; align-items:center; gap:8px;">
+                            <i class="fa-solid fa-lock"></i>
+                            <span id="textoBannerActaCerrada">ACTA ASENTADA Y CERRADA: La edición de calificaciones para esta sección está deshabilitada en modo solo lectura.</span>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr style="background: #e2e8f0;">
+                                        <th>NIE</th>
+                                        <th>Estudiante</th>
+                                        <th>Grado / Sección</th>
+                                        <th style="text-align: center;">Actividad 1 (35%)</th>
+                                        <th style="text-align: center;">Actividad 2 (35%)</th>
+                                        <th style="text-align: center;">Examen (30%)</th>
+                                        <th style="text-align: center;">Nota Final Periodo</th>
+                                        <th style="text-align: center;">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbodyMatriz">
+                                    <?php if (!empty($listaEstudiantes)): ?>
+                                        <?php foreach ($listaEstudiantes as $est): 
+                                            $eId = (int)$est['id'];
+                                            $gradoEst = trim($est['grado'] ?? '');
+                                            $secEst   = trim($est['seccion'] ?? '');
+                                            $detJson  = htmlspecialchars(json_encode($notasDetalleBD[$eId] ?? []), ENT_QUOTES, 'UTF-8');
+                                        ?>
+                                            <tr class="fila-matriz-item"
+                                                data-id="<?= $eId ?>"
+                                                data-grado="<?= htmlspecialchars($gradoEst) ?>"
+                                                data-seccion="<?= htmlspecialchars($secEst) ?>"
+                                                data-detalle="<?= $detJson ?>">
+                                                <td>
+                                                    <strong><?= htmlspecialchars($est['nie'] ?? 'N/D') ?></strong>
+                                                    <input type="hidden" name="estudiante_ids[]" value="<?= $eId ?>" class="input-id-matriz">
+                                                </td>
+                                                <td><strong><?= htmlspecialchars(($est['apellido'] ?? '') . ', ' . ($est['nombre'] ?? '')) ?></strong></td>
+                                                <td><?= htmlspecialchars($gradoEst . ' - ' . $secEst) ?></td>
+                                                <td style="text-align: center;">
+                                                    <input type="number" step="0.01" min="0" max="10" name="act1[<?= $eId ?>]" class="input-matriz-nota inp-a1" value="0.00" oninput="recalcularFilaMatriz(this)" required>
+                                                </td>
+                                                <td style="text-align: center;">
+                                                    <input type="number" step="0.01" min="0" max="10" name="act2[<?= $eId ?>]" class="input-matriz-nota inp-a2" value="0.00" oninput="recalcularFilaMatriz(this)" required>
+                                                </td>
+                                                <td style="text-align: center;">
+                                                    <input type="number" step="0.01" min="0" max="10" name="examen[<?= $eId ?>]" class="input-matriz-nota inp-ex" value="0.00" oninput="recalcularFilaMatriz(this)" required>
+                                                </td>
+                                                <td style="text-align: center; font-weight: 800; font-size: 1rem; color: var(--primary);" class="celda-nf-matriz">0.00</td>
+                                                <td style="text-align: center;" class="celda-est-matriz">
+                                                    <span class="badge-condicion badge-reprobado">REPROBADO</span>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: SECCIÓN DE ESTADÍSTICAS Y GRÁFICOS DINÁMICOS -->
+            <div id="vistaTabGraficos" class="vista-sub-tab">
+                <div id="seccion_estadisticas_pbi18" style="padding-top: 0.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h3 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Reporte de Rendimiento por Sección y Asignatura
+                            </h3>
+                            <p style="font-size: 0.85rem; color: var(--text-muted);">Métricas calculadas directamente de las calificaciones oficiales.</p>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; background: #f8fafc; padding: 0.4rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label for="selectMateriaEstadistica" style="font-size: 0.82rem; font-weight: 700; color: #334155;">Materia:</label>
+                                <select id="selectMateriaEstadistica" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; outline: none; background: #fff; font-weight: 600;">
+                                    <option value="Todas">-- Todas las Materias (Global) --</option>
                                     <option value="Matemática">Matemática</option>
                                     <option value="Lenguaje y Literatura">Lenguaje y Literatura</option>
                                     <option value="Estudios Sociales y Cívica">Estudios Sociales y Cívica</option>
@@ -310,226 +642,56 @@ $notasCarlosBoleta = [
                                     <option value="Educación Física">Educación Física</option>
                                 </select>
                             </div>
-                            <div>
-                                <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Periodo:</label>
-                                <select name="periodo" id="matrizPeriodo" onchange="cargarValoresMatriz()" style="padding: 0.45rem 0.8rem; border: 1px solid #94a3b8; border-radius: 6px; font-weight: 700; background: #fff;">
-                                    <option value="1">Periodo 1</option>
-                                    <option value="2">Periodo 2</option>
-                                    <option value="3">Periodo 3</option>
-                                    <option value="4" id="optMatrizPeriodo4">Periodo 4</option>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <label for="selectPeriodoEstadistica" style="font-size: 0.82rem; font-weight: 700; color: #334155;">Periodo:</label>
+                                <select id="selectPeriodoEstadistica" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; outline: none; background: #fff; font-weight: 600;">
+                                    <option value="0">-- Promedio Anual (Global) --</option>
+                                    <option value="1">Periodo 1</option><option value="2">Periodo 2</option><option value="3">Periodo 3</option><option value="4">Periodo 4</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn-guardar-matriz">
-                                <i class="fa-solid fa-floppy-disk"></i> Guardar Sección (Transacción)
-                            </button>
                         </div>
                     </div>
 
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr style="background: #e2e8f0;">
-                                    <th>NIE</th>
-                                    <th>Estudiante</th>
-                                    <th>Grado / Sección</th>
-                                    <th style="text-align: center;">Actividad 1 (35%)</th>
-                                    <th style="text-align: center;">Actividad 2 (35%)</th>
-                                    <th style="text-align: center;">Examen (30%)</th>
-                                    <th style="text-align: center;">Nota Final Periodo</th>
-                                    <th style="text-align: center;">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbodyMatriz">
-                                <?php if (!empty($listaEstudiantes)): ?>
-                                    <?php foreach ($listaEstudiantes as $est): 
-                                        $eId = (int)$est['id'];
-                                        $gradoEst = trim($est['grado'] ?? '');
-                                        $secEst   = trim($est['seccion'] ?? '');
-                                        $detJson  = htmlspecialchars(json_encode($notasDetalleBD[$eId] ?? []), ENT_QUOTES, 'UTF-8');
-                                    ?>
-                                        <tr class="fila-matriz-item"
-                                            data-id="<?= $eId ?>"
-                                            data-grado="<?= htmlspecialchars($gradoEst) ?>"
-                                            data-seccion="<?= htmlspecialchars($secEst) ?>"
-                                            data-detalle="<?= $detJson ?>">
-                                            <td>
-                                                <strong><?= htmlspecialchars($est['nie'] ?? 'N/D') ?></strong>
-                                                <input type="hidden" name="estudiante_ids[]" value="<?= $eId ?>" class="input-id-matriz">
-                                            </td>
-                                            <td><strong><?= htmlspecialchars(($est['apellido'] ?? '') . ', ' . ($est['nombre'] ?? '')) ?></strong></td>
-                                            <td><?= htmlspecialchars($gradoEst . ' - ' . $secEst) ?></td>
-                                            <td style="text-align: center;">
-                                                <input type="number" step="0.01" min="0" max="10" name="act1[<?= $eId ?>]" class="input-matriz-nota inp-a1" value="0.00" oninput="recalcularFilaMatriz(this)" required>
-                                            </td>
-                                            <td style="text-align: center;">
-                                                <input type="number" step="0.01" min="0" max="10" name="act2[<?= $eId ?>]" class="input-matriz-nota inp-a2" value="0.00" oninput="recalcularFilaMatriz(this)" required>
-                                            </td>
-                                            <td style="text-align: center;">
-                                                <input type="number" step="0.01" min="0" max="10" name="examen[<?= $eId ?>]" class="input-matriz-nota inp-ex" value="0.00" oninput="recalcularFilaMatriz(this)" required>
-                                            </td>
-                                            <td style="text-align: center; font-weight: 800; font-size: 1rem; color: var(--primary);" class="celda-nf-matriz">0.00</td>
-                                            <td style="text-align: center;" class="celda-est-matriz">
-                                                <span class="badge-condicion badge-reprobado">REPROBADO</span>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Tabla principal de estudiantes con Recuperación (PBI-39) y Modificación/Anulación (PBI-15) -->
-            <div class="table-responsive">
-                <table id="tablaPrincipalEstudiantes">
-                    <thead>
-                        <tr>
-                            <th>NIE</th>
-                            <th>Estudiante</th>
-                            <th>Grado/Sección</th>
-                            <th id="th_materia_activa">ASIGNATURA</th>
-                            <th style="text-align: center;" id="th_promedio_activo">PROMEDIO</th>
-                            <th style="text-align: center;">CONDICIÓN</th>
-                            <th style="text-align: right;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (!empty($listaEstudiantes)): ?>
-                            <?php foreach ($listaEstudiantes as $est): 
-                                $eId = (int)$est['id'];
-                                $nombreCompleto = strtolower(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''));
-                                $gradoEstudiante = trim($est['grado'] ?? '');
-                                $seccionEstudiante = trim($est['seccion'] ?? '');
-                                
-                                $notasEstudiante = $notasBD[$eId] ?? [];
-                                if (empty($notasEstudiante) && (strpos($nombreCompleto, 'carlos') !== false && strpos($nombreCompleto, 'martinez') !== false)) {
-                                    $notasEstudiante = $notasCarlosBoleta;
-                                }
-
-                                $jsonNotas = htmlspecialchars(json_encode($notasEstudiante), ENT_QUOTES, 'UTF-8');
-                                $jsonDetalle = htmlspecialchars(json_encode($notasDetalleBD[$eId] ?? []), ENT_QUOTES, 'UTF-8');
-                            ?>
-                                <tr data-estudiante-id="<?= $eId ?>" 
-                                    data-grado="<?= htmlspecialchars($gradoEstudiante) ?>" 
-                                    data-seccion="<?= htmlspecialchars($seccionEstudiante) ?>" 
-                                    data-notas="<?= $jsonNotas ?>"
-                                    data-detalle="<?= $jsonDetalle ?>">
-                                    <td><strong><?= htmlspecialchars($est['nie'] ?? 'N/D') ?></strong></td>
-                                    <td>
-                                        <div class="user-cell">
-                                            <div class="user-avatar-circle">
-                                                <?php 
-                                                $fNom = basename($est['foto'] ?? '');
-                                                if (!empty($fNom) && file_exists(__DIR__ . '/../uploads/' . $fNom)): 
-                                                ?>
-                                                    <img src="uploads/<?= htmlspecialchars($fNom) ?>" alt="Foto">
-                                                <?php else: ?>
-                                                    <i class="fa-solid fa-user"></i>
-                                                <?php endif; ?>
-                                            </div>
-                                            <span><?= htmlspecialchars(($est['apellido'] ?? '') . ', ' . ($est['nombre'] ?? '')) ?></span>
-                                        </div>
-                                    </td>
-                                    <td><?= htmlspecialchars($gradoEstudiante . ' - ' . $seccionEstudiante) ?></td>
-                                    <td class="col-materia-est">Promedio General</td>
-                                    <td style="text-align: center; font-weight: 800;" class="col-promedio-est">0.00</td>
-                                    <td style="text-align: center;" class="col-condicion-est">
-                                        <span class="badge-condicion badge-reprobado">REPROBADO</span>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <button type="button" class="btn-action-badge btn-notas" onclick="abrirModalNotas('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>', '<?= htmlspecialchars($gradoEstudiante, ENT_QUOTES) ?>')">
-                                            <i class="fa-solid fa-star"></i> Notas
-                                        </button>
-                                        <button type="button" class="btn-action-badge btn-recup" title="Registrar Nota de Recuperación" onclick="abrirModalRecuperacion('<?= $est['id'] ?>', '<?= htmlspecialchars(($est['nombre'] ?? '') . ' ' . ($est['apellido'] ?? ''), ENT_QUOTES) ?>')">
-                                            <i class="fa-solid fa-arrow-up-right-dots"></i> Recuperación
-                                        </button>
-                                        <a href="index.php?action=boleta_notas&estudiante_id=<?= $est['id'] ?>" class="btn-action-badge btn-boleta" title="Boleta"><i class="fa-solid fa-file-lines"></i></a>
-                                        <a href="index.php?action=editar_estudiante&id=<?= $est['id'] ?>" class="btn-action-badge btn-edit-est" title="Editar"><i class="fa-solid fa-pen"></i></a>
-                                        <a href="index.php?action=eliminar_usuario&id=<?= $est['id'] ?>" class="btn-action-badge btn-del-est" title="Eliminar" onclick="return confirm('¿Eliminar estudiante?');"><i class="fa-solid fa-trash"></i></a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay estudiantes matriculados registrados.</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- SECCIÓN DE ESTADÍSTICAS Y GRÁFICOS DINÁMICOS -->
-            <div id="seccion_estadisticas_pbi18" style="margin-top: 2.5rem; border-top: 2px solid var(--border); padding-top: 1.75rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
-                    <div>
-                        <h3 style="font-size: 1.35rem; font-weight: 800; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Reporte de Rendimiento por Sección y Asignatura
-                        </h3>
-                        <p style="font-size: 0.85rem; color: var(--text-muted);">Métricas calculadas directamente de las calificaciones oficiales.</p>
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center; background: #f8fafc; padding: 0.4rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label for="selectMateriaEstadistica" style="font-size: 0.82rem; font-weight: 700; color: #334155;">Materia:</label>
-                            <select id="selectMateriaEstadistica" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; outline: none; background: #fff; font-weight: 600;">
-                                <option value="Todas">-- Todas las Materias (Global) --</option>
-                                <option value="Matemática">Matemática</option>
-                                <option value="Lenguaje y Literatura">Lenguaje y Literatura</option>
-                                <option value="Estudios Sociales y Cívica">Estudios Sociales y Cívica</option>
-                                <option value="Ciencia y Tecnología">Ciencia y Tecnología</option>
-                                <option value="Idioma Extranjero (Inglés)">Idioma Extranjero (Inglés)</option>
-                                <option value="Educación Física">Educación Física</option>
-                            </select>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+                        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1.1rem; text-align: center;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px;">Promedio General</div>
+                            <div id="kpi_promedio" style="font-size: 1.9rem; font-weight: 800; color: #1d4ed8; margin-top: 4px;">--</div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <label for="selectPeriodoEstadistica" style="font-size: 0.82rem; font-weight: 700; color: #334155;">Periodo:</label>
-                            <select id="selectPeriodoEstadistica" style="padding: 0.35rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; outline: none; background: #fff; font-weight: 600;">
-                                <option value="0">-- Promedio Anual (Global) --</option>
-                                <option value="1">Periodo 1</option><option value="2">Periodo 2</option><option value="3">Periodo 3</option><option value="4">Periodo 4</option>
-                            </select>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 1.1rem; text-align: center;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">Nota Más Alta</div>
+                            <div id="kpi_max" style="font-size: 1.9rem; font-weight: 800; color: #15803d; margin-top: 4px;">--</div>
+                        </div>
+                        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 1.1rem; text-align: center;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">Nota Más Baja</div>
+                            <div id="kpi_min" style="font-size: 1.9rem; font-weight: 800; color: #b91c1c; margin-top: 4px;">--</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; text-align: center;">
+                            <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Estudiantes Visibles</div>
+                            <div id="kpi_total" style="font-size: 1.9rem; font-weight: 800; color: var(--text-main); margin-top: 4px;">0</div>
                         </div>
                     </div>
-                </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
-                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 1.1rem; text-align: center;">
-                        <div style="font-size: 0.78rem; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px;">Promedio General</div>
-                        <div id="kpi_promedio" style="font-size: 1.9rem; font-weight: 800; color: #1d4ed8; margin-top: 4px;">--</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;">
+                            <h4 id="tituloPastelMateria" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Distribución de Rangos (Pastel)</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartPastelRendimiento"></canvas></div>
+                        </div>
+                        <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;">
+                            <h4 id="tituloBarrasMateria" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Cantidad de Alumnos por Categoría (Barras)</h4>
+                            <div style="position: relative; height: 260px;"><canvas id="chartBarrasRendimiento"></canvas></div>
+                        </div>
                     </div>
-                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 1.1rem; text-align: center;">
-                        <div style="font-size: 0.78rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.5px;">Nota Más Alta</div>
-                        <div id="kpi_max" style="font-size: 1.9rem; font-weight: 800; color: #15803d; margin-top: 4px;">--</div>
-                    </div>
-                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 1.1rem; text-align: center;">
-                        <div style="font-size: 0.78rem; font-weight: 800; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px;">Nota Más Baja</div>
-                        <div id="kpi_min" style="font-size: 1.9rem; font-weight: 800; color: #b91c1c; margin-top: 4px;">--</div>
-                    </div>
-                    <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; text-align: center;">
-                        <div style="font-size: 0.78rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Estudiantes Visibles</div>
-                        <div id="kpi_total" style="font-size: 1.9rem; font-weight: 800; color: var(--text-main); margin-top: 4px;">0</div>
-                    </div>
-                </div>
 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
                     <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;">
-                        <h4 id="tituloPastelMateria" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Distribución de Rangos (Pastel)</h4>
-                        <div style="position: relative; height: 260px;"><canvas id="chartPastelRendimiento"></canvas></div>
+                        <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Promedio Comparativo Real entre Asignaturas de la Sección</h4>
+                        <div style="position: relative; height: 240px;"><canvas id="chartComparativoMaterias"></canvas></div>
                     </div>
-                    <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;">
-                        <h4 id="tituloBarrasMateria" style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Cantidad de Alumnos por Categoría (Barras)</h4>
-                        <div style="position: relative; height: 260px;"><canvas id="chartBarrasRendimiento"></canvas></div>
-                    </div>
-                </div>
-
-                <div style="background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem;">
-                    <h4 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main); text-align: center;">Promedio Comparativo Real entre Asignaturas de la Sección</h4>
-                    <div style="position: relative; height: 240px;"><canvas id="chartComparativoMaterias"></canvas></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 1: CALIFICACIONES ORDINARIAS CON AUDITORÍA Y ANULACIÓN (PBI-15) -->
+    <!-- MODAL 1: CALIFICACIONES ORDINARIAS CON AUDITORÍA Y ANULACIÓN (PBI-15 + PBI-47) -->
     <div class="modal-overlay" id="modalNotas">
         <div class="modal-card">
             <div class="modal-header">
@@ -541,6 +703,8 @@ $notasCarlosBoleta = [
             </div>
             <form action="index.php?action=guardar_nota" method="POST" id="formModalNotas" onsubmit="return solicitarConfirmacionGuardar(event)">
                 <input type="hidden" id="estudiante_id" name="estudiante_id">
+                <input type="hidden" id="modal_estudiante_grado" name="modal_estudiante_grado" value="">
+                <input type="hidden" id="modal_estudiante_seccion" name="modal_estudiante_seccion" value="">
                 <input type="hidden" id="accion_anular" name="accion_anular" value="">
 
                 <div class="form-grid-modal">
@@ -562,6 +726,13 @@ $notasCarlosBoleta = [
                         </select>
                     </div>
                 </div>
+
+                <!-- PBI-47: Banner informativo dentro del modal individual si el acta está cerrada -->
+                <div id="alertaActaCerradaModal" style="display:none; background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; padding:0.65rem 0.85rem; border-radius:8px; font-size:0.8rem; font-weight:700; margin-bottom:1rem; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Acta asentada y cerrada oficialmente. Las calificaciones están en modo solo lectura.</span>
+                </div>
+
                 <div class="form-grid-modal">
                     <div class="form-group-modal">
                         <label for="act1">Actividad 1 (35%)</label>
@@ -581,7 +752,6 @@ $notasCarlosBoleta = [
                     <span id="labelNotaFinal">0.0</span>
                 </div>
 
-                <!-- Detalle de traza de auditoría si ya fue modificado -->
                 <div id="trazaAuditoriaBox" style="display:none; font-size:0.75rem; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 10px; border-radius:6px; margin-bottom:1.25rem;">
                     <i class="fa-solid fa-fingerprint"></i> <span id="trazaAuditoriaTexto"></span>
                 </div>
@@ -592,7 +762,7 @@ $notasCarlosBoleta = [
                     </button>
                     <div style="display:flex; gap:10px; margin-left:auto;">
                         <button type="button" class="btn-modal-cancel" onclick="cerrarModalNotas()">Cancelar</button>
-                        <button type="submit" class="btn-modal-save"><i class="fa-solid fa-floppy-disk"></i> Guardar Calificación</button>
+                        <button type="submit" class="btn-modal-save" id="btnGuardarNotaModal"><i class="fa-solid fa-floppy-disk"></i> Guardar Calificación</button>
                     </div>
                 </div>
             </form>
@@ -611,6 +781,8 @@ $notasCarlosBoleta = [
             </div>
             <form action="index.php?action=guardar_recuperacion" method="POST" id="formRecuperacion">
                 <input type="hidden" id="recup_estudiante_id" name="estudiante_id">
+                <input type="hidden" id="recup_estudiante_grado" name="estudiante_grado" value="">
+                <input type="hidden" id="recup_estudiante_seccion" name="estudiante_seccion" value="">
 
                 <div class="form-grid-modal">
                     <div class="form-group-modal">
@@ -667,6 +839,181 @@ $notasCarlosBoleta = [
         </div>
     </div>
 
+    <!-- MODAL 4: ALERTA DE IMPRESIÓN EN BLANCO -->
+    <div class="modal-overlay" id="modalAlertaImpresionVacia" style="z-index: 1200;">
+        <div class="modal-card" style="max-width: 500px; text-align: center;">
+            <div style="width: 62px; height: 62px; border-radius: 50%; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.85rem; margin: 0 auto 1.2rem; border: 2px solid #fde68a;">
+                <i class="fa-solid fa-print"></i>
+            </div>
+            <h3 id="tituloAlertaImpresion" style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 0.5rem;">Sin Selección para Imprimir</h3>
+            <p id="mensajeAlertaImpresion" style="font-size: 0.92rem; color: #475569; line-height: 1.55; margin-bottom: 1.5rem;">No se tiene seleccionado ningún Grado o Sección.</p>
+            <div style="display: flex; justify-content: center; gap: 12px;">
+                <button type="button" class="btn-modal-save" style="background: #2563eb;" onclick="cerrarAlertaImpresionYEnfocar()">
+                    <i class="fa-solid fa-filter"></i> Seleccionar Filtros
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: REAPERTURA EXTRAORDINARIA DE ACTA POR SECCIÓN (PBI-47 - CRITERIO 3) -->
+    <div class="modal-overlay" id="modalReaperturaActaPBI47" style="z-index: 1150;">
+        <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h3 style="color:#d97706; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-key"></i> Autorizar Reapertura Extraordinaria
+                    </h3>
+                    <p id="subtituloReaperturaModal">Habilitación temporal de edición para acta cerrada</p>
+                </div>
+                <button type="button" class="modal-close" onclick="cerrarModalReapertura()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form action="index.php?action=cambiar_estado_periodo" method="POST" id="formReaperturaActa">
+                <input type="hidden" name="materia" id="reaperturaMateria">
+                <input type="hidden" name="periodo" id="reaperturaPeriodo">
+                <input type="hidden" name="grado" id="reaperturaGrado">
+                <input type="hidden" name="seccion" id="reaperturaSeccion">
+                <input type="hidden" name="nuevo_estado" value="ABIERTO">
+
+                <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:0.85rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem; line-height:1.45;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> <strong>Exclusivo de Dirección / Administración:</strong> La reapertura de actas cerradas queda auditada con su usuario, fecha y el motivo en la bitácora institucional.
+                </div>
+
+                <div class="form-group-modal">
+                    <label for="motivo_reapertura">Motivo Obligatorio de Reapertura: <span style="color:#dc2626;">*</span></label>
+                    <textarea name="motivo_reapertura" id="motivo_reapertura" rows="3" placeholder="Ej: Autorizado por acuerdo de dirección pedagógica debido a error de digitación..." style="resize:vertical; min-height:80px;" required></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="cerrarModalReapertura()">Cancelar</button>
+                    <button type="submit" class="btn-modal-save" style="background:#d97706;">
+                        <i class="fa-solid fa-unlock"></i> Confirmar Reapertura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PBI-49: MODAL DE CIERRE ANUAL INDIVIDUAL POR GRADO Y SECCIÓN -->
+    <div class="modal-overlay" id="modalCierreAnual" style="z-index: 1300;">
+        <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h3 style="color:#dc2626; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-calendar-check"></i> Cierre de Año Lectivo por Sección
+                    </h3>
+                    <p>Consolidación y promoción granular</p>
+                </div>
+                <button type="button" class="modal-close" onclick="document.getElementById('modalCierreAnual').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div style="background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:0.85rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem; line-height:1.45;">
+                <i class="fa-solid fa-triangle-exclamation"></i> <strong>Atención Administrador:</strong> Esta acción procesará <u>únicamente</u> a los alumnos del grado y sección seleccionados:
+                <ul style="margin-top: 5px; padding-left: 18px;">
+                    <li>Congelará las calificaciones en el <strong>Kárdex Histórico</strong> de la sección.</li>
+                    <li>Promoverá al grado superior a los alumnos aprobados de este grupo.</li>
+                    <li>Limpiará las notas y actas de esta sección específica.</li>
+                </ul>
+            </div>
+
+            <form action="index.php?action=ejecutar_cierre_anual" method="POST" onsubmit="return confirm('¿Está seguro de ejecutar el cierre anual para esta sección?');">
+                <div class="form-group-modal">
+                    <label>Año Lectivo a Cerrar (Ej. 2026):</label>
+                    <input type="number" name="anio_lectivo" value="<?= date('Y') ?>" required>
+                </div>
+
+                <div class="form-group-modal">
+                    <label>Grado a Cerrar: <span style="color:#dc2626;">*</span></label>
+                    <select name="grado_cierre" required>
+                        <option value="">-- Seleccione Grado --</option>
+                        <option value="1° Grado">1° Grado</option><option value="2° Grado">2° Grado</option><option value="3° Grado">3° Grado</option>
+                        <option value="4° Grado">4° Grado</option><option value="5° Grado">5° Grado</option><option value="6° Grado">6° Grado</option>
+                        <option value="7° Grado">7° Grado</option><option value="8° Grado">8° Grado</option><option value="9° Grado">9° Grado</option>
+                        <option value="1° Año Bachillerato">1° Año Bachillerato</option><option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                    </select>
+                </div>
+
+                <div class="form-group-modal">
+                    <label>Sección a Cerrar: <span style="color:#dc2626;">*</span></label>
+                    <select name="seccion_cierre" required>
+                        <option value="">-- Seleccione Sección --</option>
+                        <option value="Sección A">Sección A</option>
+                        <option value="Sección B">Sección B</option>
+                        <option value="Sección C">Sección C</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="document.getElementById('modalCierreAnual').style.display='none'">Cancelar</button>
+                    <button type="submit" class="btn-modal-save" style="background: #dc2626;">
+                        <i class="fa-solid fa-stamp"></i> Ejecutar Cierre de Sección
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PROMOCIÓN MANUAL (MATRÍCULA AÑO INMEDIATO SUPERIOR 2027) -->
+    <div class="modal-overlay" id="modalPromocionManual" style="z-index: 1400;">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h3 style="color:#7c3aed; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-arrow-turn-up"></i> Apertura Nuevo Año Lectivo (2027)
+                    </h3>
+                    <p>Inscribir alumno en su grado para el año inmediato superior.</p>
+                </div>
+                <button type="button" class="modal-close" onclick="document.getElementById('modalPromocionManual').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form action="index.php?action=procesar_promocion_manual" method="POST" onsubmit="return confirm('¿Seguro que desea matricular a este alumno para el año 2027? Sus notas actuales se limpiarán para el nuevo ciclo.');">
+                <input type="hidden" name="estudiante_id" id="promo_estudiante_id">
+                <input type="hidden" name="estado_actual" id="promo_estado_actual">
+                <input type="hidden" name="anio_lectivo_destino" value="2027">
+                
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:0.85rem; border-radius:8px; font-size:0.85rem; margin-bottom:1.25rem;">
+                    <strong>Estudiante:</strong> <span id="promo_nombre_estudiante"></span><br>
+                    <strong>Condición Cierre:</strong> <span id="promo_condicion_badge" class="badge-condicion"></span>
+                </div>
+
+                <div class="form-group-modal">
+                    <label>Inscribir en Grado (Año 2027): <span style="color:#dc2626;">*</span></label>
+                    <select name="nuevo_grado" id="promo_nuevo_grado" required>
+                        <option value="1° Grado">1° Grado</option><option value="2° Grado">2° Grado</option><option value="3° Grado">3° Grado</option>
+                        <option value="4° Grado">4° Grado</option><option value="5° Grado">5° Grado</option><option value="6° Grado">6° Grado</option>
+                        <option value="7° Grado">7° Grado</option><option value="8° Grado">8° Grado</option><option value="9° Grado">9° Grado</option>
+                        <option value="1° Año Bachillerato">1° Año Bachillerato</option><option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                        <option value="EGRESADO/GRADUADO">EGRESADO / GRADUADO</option>
+                    </select>
+                </div>
+
+                <div class="form-group-modal">
+                    <label>Asignar Sección: <span style="color:#dc2626;">*</span></label>
+                    <select name="nueva_seccion" required>
+                        <option value="Sección A">Sección A</option>
+                        <option value="Sección B">Sección B</option>
+                        <option value="Sección C">Sección C</option>
+                    </select>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="document.getElementById('modalPromocionManual').style.display='none'">Cancelar</button>
+                    <button type="submit" class="btn-modal-save" style="background: #7c3aed;">
+                        <i class="fa-solid fa-check"></i> Matricular para 2027 y Limpiar Notas
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FORMULARIO OCULTO PARA CIERRE DIRECTO POR SECCIÓN (PBI-47 - CRITERIO 1) -->
+    <form action="index.php?action=cambiar_estado_periodo" method="POST" id="formCerrarActaDirecto" style="display:none;">
+        <input type="hidden" name="materia" id="cierreMateria">
+        <input type="hidden" name="periodo" id="cierrePeriodo">
+        <input type="hidden" name="grado" id="cierreGrado">
+        <input type="hidden" name="seccion" id="cierreSeccion">
+        <input type="hidden" name="nuevo_estado" value="CERRADO">
+    </form>
+
     <script>
         const TODAS_LAS_MATERIAS_OFICIALES = [
             'Matemática',
@@ -677,11 +1024,155 @@ $notasCarlosBoleta = [
             'Educación Física'
         ];
 
+        // PBI-47: Mapa precargado de estados de actas (indexado por materia_periodo_grado_seccion)
+        const MAPA_ESTADOS_ACTAS_PBI47 = <?= json_encode($mapaEstadosActas) ?>;
+
         function normalizarTexto(txt) {
             return (txt || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         }
 
-        // PBI-15: CONFIRMACIÓN EXPLÍCITA EN VENTANA MODAL
+        // PBI-47: Obtener estado de acta por Materia, Periodo, Grado y Sección
+        function obtenerEstadoActa(materia, periodo, grado, seccion) {
+            if (!grado || !seccion) return 'ABIERTO';
+            const clave = materia.trim() + '_' + parseInt(periodo) + '_' + grado.trim() + '_' + seccion.trim();
+            return MAPA_ESTADOS_ACTAS_PBI47[clave] ? MAPA_ESTADOS_ACTAS_PBI47[clave].estado : 'ABIERTO';
+        }
+
+        function abrirModalPromocion(id, nombre, estado, gradoActual) {
+            document.getElementById('promo_estudiante_id').value = id;
+            document.getElementById('promo_estado_actual').value = estado;
+            document.getElementById('promo_nombre_estudiante').textContent = nombre;
+            
+            const badge = document.getElementById('promo_condicion_badge');
+            badge.textContent = estado;
+            if (estado === 'PROMOVIDO') {
+                badge.className = 'badge-condicion badge-aprobado';
+            } else if (estado === 'RETENIDO') {
+                badge.className = 'badge-condicion badge-reprobado';
+            } else {
+                badge.className = 'badge-condicion badge-sin-calificar';
+            }
+
+            const mapaPromocion = {
+                '1° Grado': '2° Grado', '2° Grado': '3° Grado', '3° Grado': '4° Grado',
+                '4° Grado': '5° Grado', '5° Grado': '6° Grado', '6° Grado': '7° Grado',
+                '7° Grado': '8° Grado', '8° Grado': '9° Grado', '9° Grado': '1° Año Bachillerato',
+                '1° Año Bachillerato': '2° Año Bachillerato', '2° Año Bachillerato': 'EGRESADO/GRADUADO'
+            };
+            
+            const selectGrado = document.getElementById('promo_nuevo_grado');
+            let gradoSugerido = (estado === 'PROMOVIDO') ? (mapaPromocion[gradoActual] || gradoActual) : gradoActual;
+            
+            for (let i = 0; i < selectGrado.options.length; i++) {
+                if (selectGrado.options[i].value === gradoSugerido) {
+                    selectGrado.selectedIndex = i;
+                    break;
+                }
+            }
+
+            document.getElementById('modalPromocionManual').style.display = 'flex';
+        }
+
+        // PBI-47: Gestión del botón de cierre / reapertura en Matriz vinculado a los filtros
+        function gestionarCierreOReaperturaActa() {
+            const mat = document.getElementById('matrizMateria').value;
+            const per = parseInt(document.getElementById('matrizPeriodo').value) || 1;
+            const grado = document.getElementById('selectGrado').value.trim();
+            const seccion = document.getElementById('selectSeccion').value.trim();
+
+            if (!grado || !seccion) {
+                mostrarAlertaImpresionVacia(
+                    'Selección Requerida para Asentar Acta',
+                    'Debe seleccionar un Grado y una Sección en los filtros superiores para asentar o gestionar el cierre del acta de esa sección en específico.'
+                );
+                return;
+            }
+
+            const estadoActual = obtenerEstadoActa(mat, per, grado, seccion);
+
+            if (estadoActual === 'CERRADO') {
+                document.getElementById('reaperturaMateria').value = mat;
+                document.getElementById('reaperturaPeriodo').value = per;
+                document.getElementById('reaperturaGrado').value = grado;
+                document.getElementById('reaperturaSeccion').value = seccion;
+                document.getElementById('subtituloReaperturaModal').textContent = `${mat} • Periodo ${per} • ${grado} (${seccion})`;
+                document.getElementById('motivo_reapertura').value = '';
+                document.getElementById('modalReaperturaActaPBI47').style.display = 'flex';
+            } else {
+                abrirModalConfirmacionPBI15(
+                    'Asentar y Cerrar Acta Oficial de Sección',
+                    `¿Está seguro de cerrar definitivamente el acta de ${mat} (Periodo ${per}) para la sección ${grado} - ${seccion}? Al asentarla, los docentes no podrán modificar calificaciones en esta sección a menos que se autorice una reapertura extraordinaria.`,
+                    true,
+                    function() {
+                        document.getElementById('cierreMateria').value = mat;
+                        document.getElementById('cierrePeriodo').value = per;
+                        document.getElementById('cierreGrado').value = grado;
+                        document.getElementById('cierreSeccion').value = seccion;
+                        document.getElementById('formCerrarActaDirecto').submit();
+                    }
+                );
+            }
+        }
+
+        function cerrarModalReapertura() {
+            document.getElementById('modalReaperturaActaPBI47').style.display = 'none';
+        }
+
+        function mostrarAlertaImpresionVacia(titulo, mensaje) {
+            document.getElementById('tituloAlertaImpresion').textContent = titulo;
+            document.getElementById('mensajeAlertaImpresion').textContent = mensaje;
+            document.getElementById('modalAlertaImpresionVacia').style.display = 'flex';
+        }
+
+        function cerrarAlertaImpresionYEnfocar() {
+            document.getElementById('modalAlertaImpresionVacia').style.display = 'none';
+            const selGrado = document.getElementById('selectGrado');
+            const selSeccion = document.getElementById('selectSeccion');
+            if (selGrado) {
+                selGrado.classList.add('filtro-alerta');
+                selGrado.focus();
+                setTimeout(() => selGrado.classList.remove('filtro-alerta'), 2500);
+            }
+            if (selSeccion) {
+                selSeccion.classList.add('filtro-alerta');
+                setTimeout(() => selSeccion.classList.remove('filtro-alerta'), 2500);
+            }
+        }
+
+        function cambiarPestanaInterna(nombreTab) {
+            const btnNomina = document.getElementById('btnTabNomina');
+            const btnMatriz = document.getElementById('btnTabMatriz');
+            const btnGraficos = document.getElementById('btnTabGraficos');
+            const btnToggleTop = document.getElementById('btnToggleMatriz');
+
+            const vistaNomina = document.getElementById('vistaTabNomina');
+            const vistaMatriz = document.getElementById('vistaTabMatriz');
+            const vistaGraficos = document.getElementById('vistaTabGraficos');
+
+            [btnNomina, btnMatriz, btnGraficos].forEach(b => b && b.classList.remove('active'));
+            [vistaNomina, vistaMatriz, vistaGraficos].forEach(v => v && v.classList.remove('active'));
+            if (btnToggleTop) btnToggleTop.classList.remove('active');
+
+            if (nombreTab === 'matriz') {
+                if (btnMatriz) btnMatriz.classList.add('active');
+                if (vistaMatriz) vistaMatriz.classList.add('active');
+                if (btnToggleTop) btnToggleTop.classList.add('active');
+                cargarValoresMatriz();
+                try { sessionStorage.setItem('inca_tab_control_notas', 'matriz'); } catch (e) {}
+            } else if (nombreTab === 'graficos') {
+                if (btnGraficos) btnGraficos.classList.add('active');
+                if (vistaGraficos) vistaGraficos.classList.add('active');
+                try { sessionStorage.setItem('inca_tab_control_notas', 'graficos'); } catch (e) {}
+                if (typeof window.redibujarGraficosPBI18 === 'function') {
+                    setTimeout(() => window.redibujarGraficosPBI18(), 40);
+                }
+            } else {
+                if (btnNomina) btnNomina.classList.add('active');
+                if (vistaNomina) vistaNomina.classList.add('active');
+                try { sessionStorage.setItem('inca_tab_control_notas', 'nomina'); } catch (e) {}
+            }
+        }
+
         let callbackConfirmacionAccion = null;
 
         function abrirModalConfirmacionPBI15(titulo, mensaje, esPeligroso, callback) {
@@ -692,10 +1183,10 @@ $notasCarlosBoleta = [
 
             if (esPeligroso) {
                 btn.style.background = '#dc2626';
-                btn.textContent = 'Sí, Anular Registro';
+                btn.textContent = 'Sí, Continuar';
                 ico.style.background = '#fee2e2';
                 ico.style.color = '#dc2626';
-                ico.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                ico.innerHTML = '<i class="fa-solid fa-stamp"></i>';
             } else {
                 btn.style.background = '#059669';
                 btn.textContent = 'Sí, Guardar Calificación';
@@ -726,7 +1217,14 @@ $notasCarlosBoleta = [
             const estNombre = document.getElementById('modalEstudianteNombre').textContent;
             const materia = document.getElementById('materia').value;
             const periodo = document.getElementById('periodo').value;
+            const grado = document.getElementById('modal_estudiante_grado').value;
+            const seccion = document.getElementById('modal_estudiante_seccion').value;
             const final = document.getElementById('labelNotaFinal').textContent;
+
+            if (obtenerEstadoActa(materia, periodo, grado, seccion) === 'CERRADO') {
+                alert('No se puede guardar: El periodo se encuentra CERRADO oficialmente para esta sección.');
+                return false;
+            }
 
             abrirModalConfirmacionPBI15(
                 'Confirmar Asentamiento de Calificación',
@@ -744,10 +1242,17 @@ $notasCarlosBoleta = [
             const estNombre = document.getElementById('modalEstudianteNombre').textContent;
             const materia = document.getElementById('materia').value;
             const periodo = document.getElementById('periodo').value;
+            const grado = document.getElementById('modal_estudiante_grado').value;
+            const seccion = document.getElementById('modal_estudiante_seccion').value;
+
+            if (obtenerEstadoActa(materia, periodo, grado, seccion) === 'CERRADO') {
+                alert('No se puede anular: El periodo se encuentra CERRADO oficialmente para esta sección.');
+                return;
+            }
 
             abrirModalConfirmacionPBI15(
                 '¿Anular Calificación Asentada?',
-                `¿Está seguro de anular la calificación de ${estNombre} en ${materia} (Periodo ${periodo})? Conforme a la normativa, el registro volverá al estado "Sin Calificar" y se recalculará de inmediato el promedio.`,
+                `¿Está seguro de anular la calificación de ${estNombre} en ${materia} (Periodo ${periodo})? Conforme a la normativa, el registro volverá al estado "Sin Calificar".`,
                 true,
                 function () {
                     document.getElementById('accion_anular').value = '1';
@@ -756,11 +1261,12 @@ $notasCarlosBoleta = [
             );
         }
 
-        // PBI-39: CONTROL DE RECUPERACIÓN EXCLUSIVA PARA REPROBADOS (< 6.0)
         let recupAlumnoDataDetalle = {};
 
-        function abrirModalRecuperacion(id, nombre) {
+        function abrirModalRecuperacion(id, nombre, grado, seccion) {
             document.getElementById('recup_estudiante_id').value = id;
+            document.getElementById('recup_estudiante_grado').value = grado || '';
+            document.getElementById('recup_estudiante_seccion').value = seccion || '';
             document.getElementById('recupEstudianteNombre').textContent = 'Recuperación: ' + nombre;
             
             const tr = document.querySelector(`tr[data-estudiante-id="${id}"]`);
@@ -785,9 +1291,13 @@ $notasCarlosBoleta = [
         function actualizarEstadoRecuperacionModal() {
             const materiaSel = document.getElementById('recup_materia').value;
             const periodoSel = parseInt(document.getElementById('recup_periodo').value) || 1;
+            const grado = document.getElementById('recup_estudiante_grado').value;
+            const seccion = document.getElementById('recup_estudiante_seccion').value;
             const alerta = document.getElementById('recup_alerta_estado');
             const inpNota = document.getElementById('nota_recuperacion');
             const btnGuardar = document.getElementById('btnGuardarRecuperacion');
+
+            const estaCerrado = (obtenerEstadoActa(materiaSel, periodoSel, grado, seccion) === 'CERRADO');
 
             let notaActual = null;
             let esRecuperada = false;
@@ -803,7 +1313,13 @@ $notasCarlosBoleta = [
                 }
             }
 
-            if (notaActual === null) {
+            if (estaCerrado) {
+                alerta.style.background = '#fee2e2';
+                alerta.style.color = '#991b1b';
+                alerta.innerHTML = `<i class="fa-solid fa-lock"></i> El acta de ${materiaSel} (Periodo ${periodoSel}) para la sección ${grado} - ${seccion} está CERRADA. Requiere autorización previa de reapertura.`;
+                inpNota.disabled = true;
+                btnGuardar.disabled = true;
+            } else if (notaActual === null) {
                 alerta.style.background = '#f1f5f9';
                 alerta.style.color = '#475569';
                 alerta.innerHTML = `<i class="fa-solid fa-circle-info"></i> El estudiante no posee calificaciones asentadas en ${materiaSel} para el Periodo ${periodoSel}.`;
@@ -812,30 +1328,25 @@ $notasCarlosBoleta = [
             } else if (notaActual >= 6.0 && !esRecuperada) {
                 alerta.style.background = '#dcfce7';
                 alerta.style.color = '#166534';
-                alerta.innerHTML = `<i class="fa-solid fa-circle-check"></i> Calificación APROBADA (${notaActual.toFixed(2)}). El Criterio A de PBI-39 restringe la recuperación exclusivamente a notas inferiores a 6.0.`;
+                alerta.innerHTML = `<i class="fa-solid fa-circle-check"></i> Calificación APROBADA (${notaActual.toFixed(2)}). El Criterio A de PBI-39 restringe la recuperación a notas menores a 6.0.`;
                 inpNota.disabled = true;
                 btnGuardar.disabled = true;
             } else {
                 alerta.style.background = '#fee2e2';
                 alerta.style.color = '#991b1b';
                 const strOrig = esRecuperada ? ` (Nota reprobada original: ${parseFloat(notaOriginal).toFixed(2)})` : '';
-                alerta.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Calificación REPROBADA (${notaActual.toFixed(2)})${strOrig}. Cumple con Criterio A: Habilitado para evaluación de recuperación y sustitución.`;
+                alerta.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Calificación REPROBADA (${notaActual.toFixed(2)})${strOrig}. Habilitado para recuperación y sustitución.`;
                 inpNota.disabled = false;
                 btnGuardar.disabled = false;
             }
         }
 
-        // PBI-12: MATRIZ POR SECCIÓN
         function alternarModoMatriz() {
-            const bloqueMatriz = document.getElementById('bloqueMatrizPBI12');
-            const btnToggle = document.getElementById('btnToggleMatriz');
-            if (bloqueMatriz.style.display === 'block') {
-                bloqueMatriz.style.display = 'none';
-                btnToggle.classList.remove('active');
+            const vistaMatriz = document.getElementById('vistaTabMatriz');
+            if (vistaMatriz && vistaMatriz.classList.contains('active')) {
+                cambiarPestanaInterna('nomina');
             } else {
-                bloqueMatriz.style.display = 'block';
-                btnToggle.classList.add('active');
-                cargarValoresMatriz();
+                cambiarPestanaInterna('matriz');
             }
         }
 
@@ -862,20 +1373,66 @@ $notasCarlosBoleta = [
         function cargarValoresMatriz() {
             const matSel = document.getElementById('matrizMateria').value;
             const perSel = parseInt(document.getElementById('matrizPeriodo').value) || 1;
-            const gradoFiltro = normalizarTexto(document.getElementById('selectGrado').value);
-            const seccionFiltro = normalizarTexto(document.getElementById('selectSeccion').value);
+            const gradoFiltro = document.getElementById('selectGrado').value.trim();
+            const seccionFiltro = document.getElementById('selectSeccion').value.trim();
             const textoBusq = normalizarTexto(document.getElementById('input_buscar_pbi21').value);
+
+            document.getElementById('inputHiddenMatrizGrado').value = gradoFiltro;
+            document.getElementById('inputHiddenMatrizSeccion').value = seccionFiltro;
+
+            const badgeActa = document.getElementById('badgeEstadoActaMatriz');
+            const btnAccionActa = document.getElementById('btnAccionActaMatriz');
+            const bannerCerrada = document.getElementById('bannerActaCerradaMatriz');
+            const btnSubmitMat = document.getElementById('btnSubmitMatriz');
+
+            if (!gradoFiltro || !seccionFiltro) {
+                badgeActa.className = 'badge-acta-estado';
+                badgeActa.style.background = '#f1f5f9';
+                badgeActa.style.color = '#64748b';
+                badgeActa.innerHTML = '<i class="fa-solid fa-filter"></i> FILTRO PENDIENTE';
+
+                btnAccionActa.className = 'btn-bloqueo-acta';
+                btnAccionActa.style.background = '#cbd5e1';
+                btnAccionActa.style.color = '#475569';
+                btnAccionActa.innerHTML = '<i class="fa-solid fa-hand"></i> Seleccione Sección';
+                bannerCerrada.style.display = 'none';
+                btnSubmitMat.disabled = false;
+            } else {
+                const estadoActa = obtenerEstadoActa(matSel, perSel, gradoFiltro, seccionFiltro);
+                btnAccionActa.removeAttribute('style');
+
+                if (estadoActa === 'CERRADO') {
+                    badgeActa.className = 'badge-acta-estado acta-cerrada';
+                    badgeActa.innerHTML = `<i class="fa-solid fa-lock"></i> CERRADA (${gradoFiltro} ${seccionFiltro})`;
+
+                    btnAccionActa.className = 'btn-bloqueo-acta btn-reabrir-acta';
+                    btnAccionActa.innerHTML = '<i class="fa-solid fa-unlock"></i> Reabrir Esta Sección';
+
+                    bannerCerrada.style.display = 'flex';
+                    document.getElementById('textoBannerActaCerrada').textContent = `ACTA CERRADA PARA ${gradoFiltro} (${seccionFiltro}): Calificaciones en modo solo lectura.`;
+                    btnSubmitMat.disabled = true;
+                } else {
+                    badgeActa.className = 'badge-acta-estado acta-abierta';
+                    badgeActa.innerHTML = `<i class="fa-solid fa-lock-open"></i> ABIERTA (${gradoFiltro} ${seccionFiltro})`;
+
+                    btnAccionActa.className = 'btn-bloqueo-acta btn-cerrar-acta';
+                    btnAccionActa.innerHTML = '<i class="fa-solid fa-stamp"></i> Asentar Esta Sección';
+
+                    bannerCerrada.style.display = 'none';
+                    btnSubmitMat.disabled = false;
+                }
+            }
 
             const filasMatriz = document.querySelectorAll('.fila-matriz-item');
             filasMatriz.forEach(tr => {
-                const fGrado = normalizarTexto(tr.getAttribute('data-grado') || '');
-                const fSeccion = normalizarTexto(tr.getAttribute('data-seccion') || '');
-                const fTexto = normalizarTexto(tr.innerText);
+                const fGrado = tr.getAttribute('data-grado') || '';
+                const fSeccion = tr.getAttribute('data-seccion') || '';
+                const fTexto = normalizarTexto(tr.textContent);
 
                 let visible = true;
                 if (textoBusq !== '' && !fTexto.includes(textoBusq)) visible = false;
-                if (gradoFiltro !== '' && !fGrado.includes(gradoFiltro)) visible = false;
-                if (seccionFiltro !== '' && !fSeccion.includes(seccionFiltro)) visible = false;
+                if (gradoFiltro !== '' && fGrado.toLowerCase() !== gradoFiltro.toLowerCase()) visible = false;
+                if (seccionFiltro !== '' && fSeccion.toLowerCase() !== seccionFiltro.toLowerCase()) visible = false;
 
                 const inpId = tr.querySelector('.input-id-matriz');
                 if (visible) {
@@ -900,6 +1457,11 @@ $notasCarlosBoleta = [
                 const inpA2 = tr.querySelector('.inp-a2');
                 const inpEx = tr.querySelector('.inp-ex');
 
+                const actaEstaCerradaFila = (obtenerEstadoActa(matSel, perSel, fGrado, fSeccion) === 'CERRADO');
+                inpA1.readOnly = actaEstaCerradaFila;
+                inpA2.readOnly = actaEstaCerradaFila;
+                inpEx.readOnly = actaEstaCerradaFila;
+
                 if (datosPer && (datosPer.act1 !== null || datosPer.act2 !== null || datosPer.examen !== null)) {
                     inpA1.value = parseFloat(datosPer.act1 || 0).toFixed(2);
                     inpA2.value = parseFloat(datosPer.act2 || 0).toFixed(2);
@@ -913,11 +1475,10 @@ $notasCarlosBoleta = [
             });
         }
 
-        // PBI-15: GESTIÓN DE NOTAS INDIVIDUAL CON PRECARGA Y BOTÓN DE ANULACIÓN
-        let estudianteNotasDetalleActual = {};
-
-        function abrirModalNotas(id, nombre, grado) {
+        function abrirModalNotas(id, nombre, grado, seccion) {
             document.getElementById('estudiante_id').value = id;
+            document.getElementById('modal_estudiante_grado').value = grado || '';
+            document.getElementById('modal_estudiante_seccion').value = seccion || '';
             document.getElementById('modalEstudianteNombre').textContent = nombre;
             document.getElementById('accion_anular').value = '';
 
@@ -927,7 +1488,7 @@ $notasCarlosBoleta = [
 
             selectPeriodo.innerHTML = '';
             if (esBachillerato) {
-                subtituloModal.textContent = 'Bachillerato (4 Periodos) • Ponderación: 35% - 35% - 30%';
+                subtituloModal.textContent = `Bachillerato (${grado} - ${seccion}) • Ponderación: 35% - 35% - 30%`;
                 selectPeriodo.innerHTML = `
                     <option value="1">Periodo 1</option>
                     <option value="2">Periodo 2</option>
@@ -935,7 +1496,7 @@ $notasCarlosBoleta = [
                     <option value="4">Periodo 4</option>
                 `;
             } else {
-                subtituloModal.textContent = 'Educación Básica (3 Periodos) • Ponderación: 35% - 35% - 30%';
+                subtituloModal.textContent = `Educación Básica (${grado} - ${seccion}) • Ponderación: 35% - 35% - 30%`;
                 selectPeriodo.innerHTML = `
                     <option value="1">Periodo 1</option>
                     <option value="2">Periodo 2</option>
@@ -961,9 +1522,25 @@ $notasCarlosBoleta = [
         function actualizarValoresModalNotas() {
             const materia = document.getElementById('materia').value;
             const periodo = parseInt(document.getElementById('periodo').value) || 1;
+            const grado = document.getElementById('modal_estudiante_grado').value;
+            const seccion = document.getElementById('modal_estudiante_seccion').value;
+
             const btnAnular = document.getElementById('btnAnularNotaModal');
+            const btnGuardar = document.getElementById('btnGuardarNotaModal');
             const boxTraza = document.getElementById('trazaAuditoriaBox');
             const txtTraza = document.getElementById('trazaAuditoriaTexto');
+            const bannerCerrada = document.getElementById('alertaActaCerradaModal');
+
+            const estaCerrada = (obtenerEstadoActa(materia, periodo, grado, seccion) === 'CERRADO');
+            const inpA1 = document.getElementById('act1');
+            const inpA2 = document.getElementById('act2');
+            const inpEx = document.getElementById('examen');
+
+            inpA1.readOnly = estaCerrada;
+            inpA2.readOnly = estaCerrada;
+            inpEx.readOnly = estaCerrada;
+            btnGuardar.disabled = estaCerrada;
+            bannerCerrada.style.display = estaCerrada ? 'flex' : 'none';
 
             let datosPeriodo = null;
             for (const [mKey, pObj] of Object.entries(estudianteNotasDetalleActual)) {
@@ -975,10 +1552,10 @@ $notasCarlosBoleta = [
             }
 
             if (datosPeriodo && (datosPeriodo.act1 !== null || datosPeriodo.act2 !== null || datosPeriodo.examen !== null)) {
-                document.getElementById('act1').value = parseFloat(datosPeriodo.act1 || 0).toFixed(2);
-                document.getElementById('act2').value = parseFloat(datosPeriodo.act2 || 0).toFixed(2);
-                document.getElementById('examen').value = parseFloat(datosPeriodo.examen || 0).toFixed(2);
-                btnAnular.style.display = 'inline-flex';
+                inpA1.value = parseFloat(datosPeriodo.act1 || 0).toFixed(2);
+                inpA2.value = parseFloat(datosPeriodo.act2 || 0).toFixed(2);
+                inpEx.value = parseFloat(datosPeriodo.examen || 0).toFixed(2);
+                btnAnular.style.display = estaCerrada ? 'none' : 'inline-flex';
 
                 if (datosPeriodo.fecha_modificacion) {
                     boxTraza.style.display = 'block';
@@ -987,9 +1564,9 @@ $notasCarlosBoleta = [
                     boxTraza.style.display = 'none';
                 }
             } else {
-                document.getElementById('act1').value = '0.00';
-                document.getElementById('act2').value = '0.00';
-                document.getElementById('examen').value = '0.00';
+                inpA1.value = '0.00';
+                inpA2.value = '0.00';
+                inpEx.value = '0.00';
                 btnAnular.style.display = 'none';
                 boxTraza.style.display = 'none';
             }
@@ -1007,6 +1584,7 @@ $notasCarlosBoleta = [
 
         document.addEventListener('DOMContentLoaded', function () {
             const inputBusqueda = document.getElementById('input_buscar_pbi21');
+            const selectAnio = document.getElementById('selectAnioLectivo');
             const selectGrado = document.getElementById('selectGrado');
             const selectSeccion = document.getElementById('selectSeccion');
             const selectCondicion = document.getElementById('selectCondicionPBI19');
@@ -1017,6 +1595,28 @@ $notasCarlosBoleta = [
             const btnFiltrar = document.getElementById('btnFiltrarManual');
             const selectMateriaEstadistica = document.getElementById('selectMateriaEstadistica');
             const selectPeriodoEstadistica = document.getElementById('selectPeriodoEstadistica');
+            const badgeConteoAlumnos = document.getElementById('badgeConteoAlumnos');
+            
+            // PBI-47: Capturar parámetros de URL para restaurar filtros tras cierre de acta
+            const urlParams = new URLSearchParams(window.location.search);
+            const msgParam = urlParams.get('msg');
+            const gParam = urlParams.get('g');
+            const sParam = urlParams.get('s');
+            
+            if (gParam && selectGrado) {
+                for(let i=0; i<selectGrado.options.length; i++) {
+                    if (selectGrado.options[i].value === gParam) {
+                        selectGrado.selectedIndex = i; break;
+                    }
+                }
+            }
+            if (sParam && selectSeccion) {
+                for(let i=0; i<selectSeccion.options.length; i++) {
+                    if (selectSeccion.options[i].value === sParam) {
+                        selectSeccion.selectedIndex = i; break;
+                    }
+                }
+            }
             
             const tabla = document.getElementById('tablaPrincipalEstudiantes');
             if (!tabla) return;
@@ -1052,7 +1652,6 @@ $notasCarlosBoleta = [
                 return null;
             }
 
-            // PBI-15: Cálculo que maneja estados null (Sin calificar)
             function calcularNotaReal(notasEst, materiaSel, periodoSel, filaGrado) {
                 if (!notasEst || typeof notasEst !== 'object' || Object.keys(notasEst).length === 0) return null;
                 const esBach = (filaGrado || '').toLowerCase().includes('bachillerato');
@@ -1129,7 +1728,6 @@ $notasCarlosBoleta = [
                         }
                     }
 
-                    // PBI-39: Habilitar botón de recuperación si tiene notas inferiores a 6.0
                     let tieneReprobadas = false;
                     for (const [m, perObj] of Object.entries(notasEst)) {
                         for (const [p, val] of Object.entries(perObj)) {
@@ -1149,6 +1747,7 @@ $notasCarlosBoleta = [
                 sincronizarTablaConFiltros();
 
                 const texto = normalizarTexto(inputBusqueda ? inputBusqueda.value : '');
+                const anioFiltro = selectAnio ? selectAnio.value : '2026';
                 const gradoFiltro = normalizarTexto(selectGrado ? selectGrado.value : '');
                 const seccionFiltro = normalizarTexto(selectSeccion ? selectSeccion.value : '');
                 const condicion = selectCondicion ? selectCondicion.value.toUpperCase().trim() : '';
@@ -1167,11 +1766,11 @@ $notasCarlosBoleta = [
 
                 let visibles = 0;
                 filas.forEach(fila => {
-                    const filaTexto = normalizarTexto(fila.innerText);
+                    const filaTexto = normalizarTexto(fila.textContent);
                     const filaGrado = normalizarTexto(fila.getAttribute('data-grado') || '');
                     const filaSeccion = normalizarTexto(fila.getAttribute('data-seccion') || '');
                     const celdaCondicion = fila.querySelector('.col-condicion-est');
-                    const textoCondicion = celdaCondicion ? celdaCondicion.innerText.toUpperCase() : '';
+                    const textoCondicion = celdaCondicion ? celdaCondicion.textContent.toUpperCase() : '';
 
                     const coincideTexto = (texto === '') || filaTexto.includes(texto);
 
@@ -1191,7 +1790,15 @@ $notasCarlosBoleta = [
 
                     const coincideCondicion = (condicion === '') || textoCondicion.includes(condicion);
 
-                    if (coincideTexto && coincideGrado && coincideSeccion && coincideCondicion) {
+                    // Lógica multianual: Si se selecciona 2027 o superior, se filtran los recién matriculados o con estado activo limpio
+                    let coincideAnio = true;
+                    if (anioFiltro === '2027') {
+                        // Podríamos validar si el alumno ya fue promovido/inscrito para el nuevo ciclo
+                        const estadoEst = fila.getAttribute('data-estado') || '';
+                        coincideAnio = (estadoEst === 'ACTIVO' && celdaCondicion && celdaCondicion.textContent.includes('SIN CALIFICAR'));
+                    }
+
+                    if (coincideTexto && coincideGrado && coincideSeccion && coincideCondicion && coincideAnio) {
                         fila.style.display = '';
                         visibles++;
                     } else {
@@ -1199,14 +1806,16 @@ $notasCarlosBoleta = [
                     }
                 });
 
+                if (badgeConteoAlumnos) badgeConteoAlumnos.textContent = visibles;
                 filaVacia.style.display = (visibles === 0) ? '' : 'none';
-                if (document.getElementById('bloqueMatrizPBI12').style.display === 'block') {
-                    cargarValoresMatriz();
-                }
+                cargarValoresMatriz();
                 actualizarEstadisticasPBI18();
             }
 
+            window.ejecutarFiltroTiempoReal = filtrarEnTiempoReal;
+
             if (inputBusqueda) inputBusqueda.addEventListener('input', filtrarEnTiempoReal);
+            if (selectAnio) selectAnio.addEventListener('change', filtrarEnTiempoReal);
             if (selectGrado) selectGrado.addEventListener('change', filtrarEnTiempoReal);
             if (selectSeccion) selectSeccion.addEventListener('change', filtrarEnTiempoReal);
             if (selectCondicion) selectCondicion.addEventListener('change', filtrarEnTiempoReal);
@@ -1219,6 +1828,7 @@ $notasCarlosBoleta = [
                 btnLimpiar.addEventListener('click', function (e) {
                     e.preventDefault();
                     if (inputBusqueda) inputBusqueda.value = '';
+                    if (selectAnio) selectAnio.selectedIndex = 0;
                     if (selectGrado) selectGrado.selectedIndex = 0;
                     if (selectSeccion) selectSeccion.selectedIndex = 0;
                     if (selectCondicion) selectCondicion.selectedIndex = 0;
@@ -1228,52 +1838,89 @@ $notasCarlosBoleta = [
                 });
             }
 
+            function tieneFiltrosSeleccionados() {
+                const g = selectGrado ? selectGrado.value.trim() : '';
+                const s = selectSeccion ? selectSeccion.value.trim() : '';
+                const b = inputBusqueda ? inputBusqueda.value.trim() : '';
+                const c = selectCondicion ? selectCondicion.value.trim() : '';
+                return (g !== '' || s !== '' || b !== '' || c !== '');
+            }
+
             function obtenerAlumnosOrdenados() {
                 const lista = [];
                 filas.forEach(fila => {
                     if (fila.style.display !== 'none' && fila.id !== 'sin_coincidencias_pbi21') {
                         const cols = fila.querySelectorAll('td');
-                        if (cols.length >= 6) {
-                            const nie = cols[0].innerText.trim();
-                            const estudiante = cols[1].innerText.trim();
-                            const gradoSeccion = cols[2].innerText.trim();
-                            const materia = cols[3].innerText.trim();
-                            const promedio = cols[4].innerText.trim();
-                            const condicion = cols[5].innerText.trim();
-                            lista.push({ nie, estudiante, gradoSeccion, materia, promedio, condicion });
-                        }
+                        const nie = fila.getAttribute('data-nie') || (cols[0] ? cols[0].textContent.trim() : 'N/D');
+                        const estudiante = fila.getAttribute('data-nombre') || (cols[1] ? cols[1].textContent.trim().replace(/\s+/g, ' ') : 'N/D');
+                        const gradoSeccion = (fila.getAttribute('data-grado') || '') + ' - ' + (fila.getAttribute('data-seccion') || '');
+                        const materia = cols[3] ? cols[3].textContent.trim() : 'Promedio General';
+                        const promedio = cols[4] ? cols[4].textContent.trim() : '--';
+                        const condicion = cols[5] ? cols[5].textContent.trim() : 'SIN CALIFICAR';
+                        lista.push({ nie, estudiante, gradoSeccion, materia, promedio, condicion });
                     }
                 });
                 lista.sort((a, b) => a.estudiante.localeCompare(b.estudiante));
                 return lista;
             }
 
-            // EXCEL EXPORT SEGURO CONTRA SHORT_OPEN_TAG
+            function exportarContenedorAPdf(contenedorPdf, opcionesPdf) {
+                const scrollPrevioY = window.scrollY || window.pageYOffset || 0;
+                const scrollPrevioX = window.scrollX || window.pageXOffset || 0;
+
+                const wrapperImpresion = document.createElement('div');
+                wrapperImpresion.style.position = 'fixed';
+                wrapperImpresion.style.top = '0';
+                wrapperImpresion.style.left = '0';
+                wrapperImpresion.style.width = '100%';
+                wrapperImpresion.style.zIndex = '-9999';
+                wrapperImpresion.style.background = '#ffffff';
+                wrapperImpresion.style.padding = '0';
+                wrapperImpresion.style.margin = '0';
+                wrapperImpresion.appendChild(contenedorPdf);
+                document.body.appendChild(wrapperImpresion);
+
+                window.scrollTo(0, 0);
+
+                html2pdf().set({
+                    margin: opcionesPdf.margin || [10, 10, 10, 10],
+                    filename: opcionesPdf.filename || 'Documento_INCA.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0 },
+                    jsPDF: { unit: 'mm', format: 'letter', orientation: opcionesPdf.orientation || 'portrait' }
+                }).from(contenedorPdf).save().then(() => {
+                    if (document.body.contains(wrapperImpresion)) document.body.removeChild(wrapperImpresion);
+                    window.scrollTo(scrollPrevioX, scrollPrevioY);
+                }).catch(err => {
+                    if (document.body.contains(wrapperImpresion)) document.body.removeChild(wrapperImpresion);
+                    window.scrollTo(scrollPrevioX, scrollPrevioY);
+                });
+            }
+
             if (btnExcel) {
                 btnExcel.addEventListener('click', function (e) {
                     e.preventDefault();
+                    if (!tieneFiltrosSeleccionados()) {
+                        mostrarAlertaImpresionVacia('Sin Selección', 'Seleccione un Grado o Sección primero.', true, false);
+                        return;
+                    }
                     const datosExportar = obtenerAlumnosOrdenados();
-
+                    if (datosExportar.length === 0) {
+                        mostrarAlertaImpresionVacia('Documento en Blanco', 'No hay registros para la sección seleccionada.', true, false);
+                        return;
+                    }
                     let htmlExcel = `
                         <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
                         <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /></head>
                         <body>
                             <table>
                                 <tr><th colspan="6" style="background-color:#0d6efd; color:#fff; font-size:14pt; height:35px; text-align:center;">INSTITUTO NOÉ CANJURA - CUADRO DE CALIFICACIONES OFICIAL</th></tr>
-                                <thead>
-                                    <tr style="background:#1a2b4c; color:#fff;">
-                                        <th>NIE / CARNÉ</th><th>APELLIDOS Y NOMBRES</th><th>GRADO Y SECCIÓN</th><th>ASIGNATURA</th><th>PROMEDIO</th><th>CONDICIÓN</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr style="background:#1a2b4c; color:#fff;"><th>NIE / CARNÉ</th><th>APELLIDOS Y NOMBRES</th><th>GRADO Y SECCIÓN</th><th>ASIGNATURA</th><th>PROMEDIO</th><th>CONDICIÓN</th></tr></thead>
                                 <tbody>
                     `;
-                    if (datosExportar.length > 0) {
-                        datosExportar.forEach(d => {
-                            htmlExcel += `<tr><td>${d.nie}</td><td>${d.estudiante}</td><td>${d.gradoSeccion}</td><td>${d.materia}</td><td>${d.promedio}</td><td>${d.condicion}</td></tr>`;
-                        });
-                    } else {
-                        htmlExcel += `<tr><td colspan="6" style="text-align:center; padding:15px;">No hay datos para exportar.</td></tr>`;
-                    }
+                    datosExportar.forEach(d => {
+                        htmlExcel += `<tr><td>${d.nie}</td><td>${d.estudiante}</td><td>${d.gradoSeccion}</td><td>${d.materia}</td><td>${d.promedio}</td><td>${d.condicion}</td></tr>`;
+                    });
                     htmlExcel += `</tbody></table></body></html>`;
 
                     const blob = new Blob(['\ufeff', htmlExcel], { type: 'application/vnd.ms-excel;charset=utf-8' });
@@ -1288,16 +1935,20 @@ $notasCarlosBoleta = [
                 });
             }
 
-            // ASISTENCIA PDF
             if (btnAsistencia) {
                 btnAsistencia.addEventListener('click', function (e) {
                     e.preventDefault();
+                    const gradoSeleccionado = selectGrado ? selectGrado.value.trim() : '';
+                    const seccionSeleccionada = selectSeccion ? selectSeccion.value.trim() : '';
+                    if (gradoSeleccionado === '' || seccionSeleccionada === '') {
+                        mostrarAlertaImpresionVacia('Sin Selección', 'Seleccione un Grado y Sección primero.', true, false);
+                        return;
+                    }
                     const datosExportar = obtenerAlumnosOrdenados();
-                    if (datosExportar.length === 0) { alert('No hay estudiantes visibles con los filtros actuales.'); return; }
-
-                    const gradoSeleccionado = selectGrado ? (selectGrado.value || 'General') : 'General';
-                    const seccionSeleccionada = selectSeccion ? (selectSeccion.value || 'Todas') : 'Todas';
-
+                    if (datosExportar.length === 0) {
+                        mostrarAlertaImpresionVacia('Sin Alumnos', 'No hay estudiantes matriculados.', false, false);
+                        return;
+                    }
                     const fechaActual = new Date();
                     const anioActual = fechaActual.getFullYear();
                     const mesActual = fechaActual.getMonth();
@@ -1414,26 +2065,21 @@ $notasCarlosBoleta = [
                         </div>
                     `;
 
-                    document.body.appendChild(contenedorPdf);
-                    html2pdf().set({
+                    exportarContenedorAPdf(contenedorPdf, {
                         margin: [10, 10, 10, 10],
                         filename: `Control_Asistencia_${gradoSeleccionado}_${seccionSeleccionada}.pdf`.replace(/\s+/g, '_'),
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true, logging: false },
-                        jsPDF: { unit: 'mm', format: 'letter', orientation: 'landscape' }
-                    }).from(contenedorPdf).save().then(() => {
-                        document.body.removeChild(contenedorPdf);
-                    }).catch(err => {
-                        console.error("Error al generar PDF:", err);
-                        if (document.body.contains(contenedorPdf)) document.body.removeChild(contenedorPdf);
+                        orientation: 'landscape'
                     });
                 });
             }
 
-            // COMITÉ PDF
             if (btnComite) {
                 btnComite.addEventListener('click', function (e) {
                     e.preventDefault();
+                    if (!tieneFiltrosSeleccionados()) {
+                        mostrarAlertaImpresionVacia('Sin Selección para Comité', 'Seleccione un Grado o Sección primero.', true, false);
+                        return;
+                    }
 
                     const periodoSel = parseInt(selectPeriodoEstadistica ? selectPeriodoEstadistica.value : 0);
                     const materiaSel = selectMateriaEstadistica ? selectMateriaEstadistica.value.trim() : 'Todas';
@@ -1446,10 +2092,11 @@ $notasCarlosBoleta = [
                         if (fila.style.display === 'none' || fila.id === 'sin_coincidencias_pbi21') return;
 
                         const cols = fila.querySelectorAll('td');
-                        const nie = cols[0] ? cols[0].innerText.trim() : 'N/D';
-                        const estudiante = cols[1] ? cols[1].innerText.trim().replace(/\s+/g, ' ') : 'N/D';
-                        const gradoSec = cols[2] ? cols[2].innerText.trim() : 'N/D';
+                        const nie = fila.getAttribute('data-nie') || (cols[0] ? cols[0].textContent.trim() : 'N/D');
+                        const estudiante = fila.getAttribute('data-nombre') || (cols[1] ? cols[1].textContent.trim().replace(/\s+/g, ' ') : 'N/D');
                         const filaGrado = fila.getAttribute('data-grado') || '';
+                        const filaSeccion = fila.getAttribute('data-seccion') || '';
+                        const gradoSec = (filaGrado && filaSeccion) ? `${filaGrado} - ${filaSeccion}` : (cols[2] ? cols[2].textContent.trim() : 'N/D');
                         const esBach = filaGrado.toLowerCase().includes('bachillerato');
                         const maxP = esBach ? 4 : 3;
 
@@ -1467,15 +2114,15 @@ $notasCarlosBoleta = [
                                     contCasosReprobados++;
                                     filasPdfHtml += `
                                         <tr style="line-height: 1.15;">
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 7px; border: 1px solid #94a3b8;">${indiceFila++}</td>
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 7px; font-weight: bold; border: 1px solid #94a3b8;">${nie}</td>
-                                            <td style="padding: 2.5px 4px; font-size: 7px; text-transform: uppercase; border: 1px solid #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${estudiante}</td>
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 7px; border: 1px solid #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${gradoSec}</td>
-                                            <td style="padding: 2.5px 4px; font-size: 7px; border: 1px solid #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${materia}</td>
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 7px; border: 1px solid #94a3b8;">Periodo ${periodo}</td>
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 7.5px; font-weight: 800; border: 1px solid #94a3b8; color: #dc2626;">${nota.toFixed(1)}</td>
-                                            <td style="padding: 2.5px 2px; text-align: center; font-size: 6.5px; font-weight: bold; border: 1px solid #94a3b8; color: #991b1b; background: #fee2e2;">REPROBADO</td>
-                                            <td style="padding: 2.5px 2px; font-size: 6.5px; border: 1px solid #94a3b8; text-align: center; white-space: nowrap; overflow: hidden;">Refuerzo Pedagógico (P${periodo})</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 7.5px; border: 1px solid #94a3b8;">${indiceFila++}</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 7.5px; font-weight: bold; border: 1px solid #94a3b8;">${nie}</td>
+                                            <td style="padding: 3px 4px; font-size: 7.5px; text-transform: uppercase; border: 1px solid #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${estudiante}</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 7.5px; border: 1px solid #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${gradoSec}</td>
+                                            <td style="padding: 3px 4px; font-size: 7.5px; border: 1px solid #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${materia}</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 7.5px; border: 1px solid #94a3b8;">Periodo ${periodo}</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 8px; font-weight: 800; border: 1px solid #94a3b8; color: #dc2626;">${nota.toFixed(1)}</td>
+                                            <td style="padding: 3px 2px; text-align: center; font-size: 7px; font-weight: bold; border: 1px solid #94a3b8; color: #991b1b; background: #fee2e2;">REPROBADO</td>
+                                            <td style="padding: 3px 2px; font-size: 7px; border: 1px solid #94a3b8; text-align: center; white-space: nowrap; overflow: hidden;">Refuerzo Pedagógico (P${periodo})</td>
                                         </tr>
                                     `;
                                 }
@@ -1484,13 +2131,8 @@ $notasCarlosBoleta = [
                     });
 
                     if (contCasosReprobados === 0) {
-                        filasPdfHtml = `
-                            <tr>
-                                <td colspan="9" style="text-align: center; padding: 20px; font-size: 9px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0;">
-                                    <strong>Sin registros de reprobación:</strong> Todos los estudiantes evaluados cumplen con la nota reglamentaria (≥ 6.0) para los criterios seleccionados.
-                                </td>
-                            </tr>
-                        `;
+                        mostrarAlertaImpresionVacia('Sin Casos Reprobados', 'No se encontraron estudiantes reprobados (< 6.0) en la selección.', false, false);
+                        return;
                     }
 
                     const contenedorPdf = document.createElement('div');
@@ -1511,26 +2153,14 @@ $notasCarlosBoleta = [
                             <h3 style="margin: 2px 0; font-size: 10px; color: #334155;">INFORME OFICIAL PARA COMITÉ DE EVALUACIÓN Y SEGUIMIENTO ACADÉMICO</h3>
                             <p style="margin: 0; font-size: 7.5px; color: #64748b;">Nómina Oficial de Estudiantes y Asignaturas en Condición de Reprobación (&lt; 6.0)</p>
                         </div>
-
                         <div style="display: flex; justify-content: space-between; font-size: 7.5px; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; margin-bottom: 6px; font-weight: bold; border: 1px solid #e2e8f0;">
                             <span>Fecha: ${new Date().toLocaleDateString('es-SV')}</span>
                             <span>Materia: ${descMateria}</span>
                             <span>Periodo: ${descPeriodo}</span>
                             <span>Total Casos en Riesgo: ${contCasosReprobados}</span>
                         </div>
-
                         <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; table-layout: fixed; box-sizing: border-box;">
-                            <colgroup>
-                                <col style="width: 25px;">
-                                <col style="width: 65px;">
-                                <col style="width: 155px;">
-                                <col style="width: 105px;">
-                                <col style="width: 125px;">
-                                <col style="width: 55px;">
-                                <col style="width: 40px;">
-                                <col style="width: 65px;">
-                                <col style="width: 85px;">
-                            </colgroup>
+                            <colgroup><col style="width: 25px;"><col style="width: 65px;"><col style="width: 155px;"><col style="width: 105px;"><col style="width: 125px;"><col style="width: 55px;"><col style="width: 40px;"><col style="width: 65px;"><col style="width: 85px;"></colgroup>
                             <thead>
                                 <tr style="background: #0f172a; color: #ffffff;">
                                     <th style="padding: 4px 2px; font-size: 6.5px; border: 1px solid #0f172a; text-align: center;">N°</th>
@@ -1544,11 +2174,8 @@ $notasCarlosBoleta = [
                                     <th style="padding: 4px 2px; font-size: 6.5px; border: 1px solid #0f172a; text-align: center;">DICTAMEN COMITÉ</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${filasPdfHtml}
-                            </tbody>
+                            <tbody>${filasPdfHtml}</tbody>
                         </table>
-
                         <div style="margin-top: 18px; display: flex; justify-content: space-around; font-size: 7.5px;">
                             <div style="width: 160px; border-top: 1px solid #000; text-align: center; padding-top: 2px;">Coordinación Pedagógica</div>
                             <div style="width: 160px; border-top: 1px solid #000; text-align: center; padding-top: 2px;">Docente de Asignatura</div>
@@ -1556,23 +2183,14 @@ $notasCarlosBoleta = [
                         </div>
                     `;
 
-                    document.body.appendChild(contenedorPdf);
-                    html2pdf().set({
+                    exportarContenedorAPdf(contenedorPdf, {
                         margin: [10, 10, 10, 10],
                         filename: 'Nomina_Comite_Reprobados_' + new Date().toISOString().slice(0, 10) + '.pdf',
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: { scale: 2, useCORS: true, logging: false },
-                        jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' }
-                    }).from(contenedorPdf).save().then(() => {
-                        document.body.removeChild(contenedorPdf);
-                    }).catch(err => {
-                        console.error("Error al generar PDF Comité:", err);
-                        if (document.body.contains(contenedorPdf)) document.body.removeChild(contenedorPdf);
+                        orientation: 'portrait'
                     });
                 });
             }
 
-            // Gráficos y Métricas dinámicas (PBI-18)
             let chartPastel = null;
             let chartBarras = null;
             let chartComparativo = null;
@@ -1592,7 +2210,7 @@ $notasCarlosBoleta = [
                 filas.forEach(fila => {
                     if (fila.style.display !== 'none' && fila.id !== 'sin_coincidencias_pbi21') {
                         const celdaProm = fila.querySelector('.col-promedio-est');
-                        let nota = celdaProm ? parseFloat(celdaProm.innerText.trim()) : NaN;
+                        let nota = celdaProm ? parseFloat(celdaProm.textContent.trim()) : NaN;
                         if (!isNaN(nota)) notasVisibles.push(nota);
                     }
                 });
@@ -1635,6 +2253,8 @@ $notasCarlosBoleta = [
                 renderizarGraficosPBI18(reprobados, regulares, excelencia, periodoActivo);
             }
 
+            window.redibujarGraficosPBI18 = actualizarEstadisticasPBI18;
+
             function destruirGraficos() {
                 if (chartPastel) { chartPastel.destroy(); chartPastel = null; }
                 if (chartBarras) { chartBarras.destroy(); chartBarras = null; }
@@ -1653,36 +2273,18 @@ $notasCarlosBoleta = [
                     type: 'pie',
                     data: {
                         labels: ['Reprobados (< 6.0)', 'Aprobados (6.0 - 7.9)', 'Excelencia (8.0 - 10.0)'],
-                        datasets: [{
-                            data: [reprobados, regulares, excelencia],
-                            backgroundColor: ['#ef4444', '#3b82f6', '#10b981'],
-                            hoverOffset: 6
-                        }]
+                        datasets: [{ data: [reprobados, regulares, excelencia], backgroundColor: ['#ef4444', '#3b82f6', '#10b981'], hoverOffset: 6 }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
                 });
 
                 chartBarras = new Chart(ctxBarras, {
                     type: 'bar',
                     data: {
                         labels: ['Reprobados (< 6.0)', 'Aprobados (6.0 - 7.9)', 'Excelencia (8.0 - 10.0)'],
-                        datasets: [{
-                            label: 'N° de Estudiantes',
-                            data: [reprobados, regulares, excelencia],
-                            backgroundColor: ['#f87171', '#60a5fa', '#34d399'],
-                            borderRadius: 6
-                        }]
+                        datasets: [{ label: 'N° de Estudiantes', data: [reprobados, regulares, excelencia], backgroundColor: ['#f87171', '#60a5fa', '#34d399'], borderRadius: 6 }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-                        plugins: { legend: { display: false } }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } }
                 });
 
                 if (ctxComparativo) {
@@ -1695,10 +2297,7 @@ $notasCarlosBoleta = [
                                 try { notasEst = JSON.parse(f.getAttribute('data-notas') || '{}'); } catch(e){}
                                 const filaGrado = f.getAttribute('data-grado') || '';
                                 const n = calcularNotaReal(notasEst, materia, periodoActivo, filaGrado);
-                                if (n !== null) {
-                                    sumMat += n;
-                                    countMat++;
-                                }
+                                if (n !== null) { sumMat += n; countMat++; }
                             }
                         });
                         return countMat > 0 ? parseFloat((sumMat / countMat).toFixed(2)) : 0.0;
@@ -1708,27 +2307,31 @@ $notasCarlosBoleta = [
                         type: 'bar',
                         data: {
                             labels: ['Matemática', 'Lenguaje', 'Sociales', 'Ciencias', 'Inglés', 'Ed. Física'],
-                            datasets: [{
-                                label: 'Promedio de Sección',
-                                data: promediosMaterias,
-                                backgroundColor: ['#2563eb', '#0284c7', '#0d9488', '#16a34a', '#854d0e', '#7c3aed'],
-                                borderRadius: 6
-                            }]
+                            datasets: [{ label: 'Promedio de Sección', data: promediosMaterias, backgroundColor: ['#2563eb', '#0284c7', '#0d9488', '#16a34a', '#854d0e', '#7c3aed'], borderRadius: 6 }]
                         },
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
                             scales: { y: { min: 0, max: 10, ticks: { stepSize: 2 } } },
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: { callbacks: { label: (ctx) => `Promedio Real: ${ctx.raw} / 10.0` } }
-                            }
+                            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Promedio Real: ${ctx.raw} / 10.0` } } }
                         }
                     });
                 }
             }
 
             filtrarEnTiempoReal();
+
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('msg') === 'matriz_guardada' || urlParams.get('msg') === 'estado_periodo_actualizado') {
+                    cambiarPestanaInterna('matriz');
+                } else {
+                    const tabGuardada = sessionStorage.getItem('inca_tab_control_notas');
+                    if (tabGuardada === 'matriz' || tabGuardada === 'graficos') {
+                        cambiarPestanaInterna(tabGuardada);
+                    }
+                }
+            } catch (e) {}
         });
     </script>
 </body>

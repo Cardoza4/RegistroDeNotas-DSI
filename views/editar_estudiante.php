@@ -99,8 +99,8 @@ $est = $estudianteData ?? [];
         .main-container {
             flex: 1;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
             padding: 2.5rem 1.5rem;
         }
 
@@ -268,7 +268,7 @@ $est = $estudianteData ?? [];
     <nav class="navbar">
         <a href="index.php?action=dashboard" class="brand">
             <div class="brand-logo-circle">
-                <img src="img/logo_inca.png" alt="Logo INCA">
+                <img src="img/logo_inca.png" alt="Logo INCA" onerror="this.src='https://ui-avatars.com/api/?name=INCA&background=fff&color=0b1a30'">
             </div>
             <span>INCA NOTES</span>
         </a>
@@ -344,7 +344,7 @@ $est = $estudianteData ?? [];
                             <select id="seccion" name="seccion" required>
                                 <?php 
                                 $actualSec = trim($est['seccion'] ?? 'Sección A');
-                                foreach (['Sección A', 'Sección B'] as $s): 
+                                foreach (['Sección A', 'Sección B', 'Sección C'] as $s): 
                                 ?>
                                     <option value="<?= $s ?>" <?= ($actualSec === $s) ? 'selected' : '' ?>><?= $s ?></option>
                                 <?php endforeach; ?>
@@ -419,7 +419,56 @@ $est = $estudianteData ?? [];
                 </div>
             </form>
         </div>
-    </main>
 
+        <!-- PBI-49: SECCIÓN DE KÁRDEX HISTÓRICO -->
+        <div class="card-register" style="margin-top: 2rem;">
+            <div style="border-bottom: 2px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-book-bookmark" style="color: var(--primary);"></i> Kárdex Histórico de Calificaciones
+                </h3>
+                <p style="font-size: 0.88rem; color: #64748b; margin-top: 4px;">Trayectoria multianual consolidada tras cada cierre de año lectivo. Estos registros son inmutables.</p>
+            </div>
+            
+            <?php if(!empty($historialKardex)): ?>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid var(--border);">
+                                <th style="padding: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Año Lectivo</th>
+                                <th style="padding: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Grado</th>
+                                <th style="padding: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Asignatura</th>
+                                <th style="padding: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; text-align: center;">Promedio Final</th>
+                                <th style="padding: 12px; font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; text-align: center;">Condición</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($historialKardex as $k): ?>
+                            <tr style="border-bottom: 1px solid var(--border);">
+                                <td style="padding: 12px; font-size: 0.9rem;"><strong><?= htmlspecialchars($k['anio_lectivo']) ?></strong></td>
+                                <td style="padding: 12px; font-size: 0.9rem;"><?= htmlspecialchars($k['grado']) ?> - <?= htmlspecialchars($k['seccion']) ?></td>
+                                <td style="padding: 12px; font-size: 0.9rem;"><?= htmlspecialchars($k['materia']) ?></td>
+                                <td style="padding: 12px; font-size: 0.95rem; text-align: center; font-weight: 800; color: var(--primary);"><?= number_format($k['promedio_final'], 2) ?></td>
+                                <td style="padding: 12px; text-align: center;">
+                                    <?php if($k['condicion'] === 'APROBADO'): ?>
+                                        <span style="background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;">APROBADO</span>
+                                    <?php else: ?>
+                                        <span style="background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px;">REPROBADO</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 2rem; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 2rem; color: #94a3b8; margin-bottom: 0.5rem;"><i class="fa-solid fa-folder-open"></i></div>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">El estudiante aún no posee registros consolidados en su Kárdex Histórico.</p>
+                    <p style="color: #94a3b8; font-size: 0.8rem; margin-top: 5px;">Las calificaciones se transferirán aquí de forma automática al finalizar el año lectivo en curso.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+    </main>
 </body>
 </html>
