@@ -1,7 +1,12 @@
+<<<<<<< HEAD
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+=======
+<<<<<<< Updated upstream
+<?php include 'views/header.php'; ?>
+>>>>>>> dev/oswaldo-cardoza
 
 $msg = $_GET['msg'] ?? '';
 $error = $_GET['error'] ?? '';
@@ -26,6 +31,39 @@ $error = $_GET['error'] ?? '';
             --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
         }
 
+<<<<<<< HEAD
+=======
+<?php include 'views/footer.php'; ?>
+=======
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+$msg = $_GET['msg'] ?? '';
+$error = $_GET['error'] ?? '';
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INCA NOTES - Registro y Matrícula</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 12px;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+>>>>>>> dev/oswaldo-cardoza
         * {
             box-sizing: border-box;
             margin: 0;
@@ -201,7 +239,12 @@ $error = $_GET['error'] ?? '';
 
         input[type="text"],
         input[type="tel"],
+<<<<<<< HEAD
         input[type="file"],
+=======
+        input[type="date"],
+        textarea,
+>>>>>>> dev/oswaldo-cardoza
         select {
             width: 100%;
             padding: 0.75rem 1rem 0.75rem 2.5rem;
@@ -213,6 +256,15 @@ $error = $_GET['error'] ?? '';
             transition: all 0.2s;
         }
 
+<<<<<<< HEAD
+=======
+        textarea {
+            resize: vertical;
+            min-height: 70px;
+            padding-left: 2.5rem;
+        }
+
+>>>>>>> dev/oswaldo-cardoza
         select {
             appearance: none;
             background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
@@ -224,6 +276,10 @@ $error = $_GET['error'] ?? '';
         }
 
         input:focus,
+<<<<<<< HEAD
+=======
+        textarea:focus,
+>>>>>>> dev/oswaldo-cardoza
         select:focus {
             outline: none;
             background-color: #ffffff;
@@ -240,7 +296,10 @@ $error = $_GET['error'] ?? '';
             box-shadow: none;
         }
 
+<<<<<<< HEAD
         /* Contenedor de Badges para materias seleccionadas */
+=======
+>>>>>>> dev/oswaldo-cardoza
         .materias-badges-container {
             display: flex;
             flex-wrap: wrap;
@@ -260,7 +319,10 @@ $error = $_GET['error'] ?? '';
             display: inline-flex;
             align-items: center;
             gap: 8px;
+<<<<<<< HEAD
             animation: popIn 0.2s ease-out;
+=======
+>>>>>>> dev/oswaldo-cardoza
         }
 
         .materia-badge i.remove-btn {
@@ -329,10 +391,13 @@ $error = $_GET['error'] ?? '';
             gap: 6px;
         }
 
+<<<<<<< HEAD
         .btn-cancel:hover {
             background: #e2e8f0;
         }
 
+=======
+>>>>>>> dev/oswaldo-cardoza
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -352,12 +417,15 @@ $error = $_GET['error'] ?? '';
             width: 90%;
             text-align: center;
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
+<<<<<<< HEAD
             animation: popIn 0.25s ease-out;
         }
 
         @keyframes popIn {
             from { transform: scale(0.9); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
+=======
+>>>>>>> dev/oswaldo-cardoza
         }
 
         .modal-icon {
@@ -371,6 +439,7 @@ $error = $_GET['error'] ?? '';
             font-size: 1.8rem;
         }
 
+<<<<<<< HEAD
         .icon-success { background: #dcfce7; color: #16a34a; }
         .icon-error { background: #fee2e2; color: #dc2626; }
 
@@ -388,6 +457,11 @@ $error = $_GET['error'] ?? '';
             line-height: 1.45;
         }
 
+=======
+        .icon-success { background: #dcfce7; color: #166534; }
+        .icon-error { background: #fee2e2; color: #dc2626; }
+
+>>>>>>> dev/oswaldo-cardoza
         .btn-modal-action {
             background: var(--primary);
             color: white;
@@ -427,11 +501,19 @@ $error = $_GET['error'] ?? '';
     <main class="main-container">
         <div class="card-register">
             <div class="card-header">
+<<<<<<< HEAD
                 <h2>Registro de Nuevas Cuentas</h2>
                 <p>Generación automatizada de credenciales y asignación de perfil institucional.</p>
             </div>
 
             <form action="index.php?action=guardar_usuario" method="POST" enctype="multipart/form-data" id="registroForm">
+=======
+                <h2>Registro y Matrícula Institucional</h2>
+                <p>Inscripción formal de estudiantes con asignación de expediente y credenciales de acceso unificadas.</p>
+            </div>
+
+            <form action="index.php?action=guardar_usuario" method="POST" id="registroForm">
+>>>>>>> dev/oswaldo-cardoza
                 <div class="form-grid">
                     
                     <div class="section-tag">
@@ -443,13 +525,18 @@ $error = $_GET['error'] ?? '';
                         <div class="input-wrapper">
                             <i class="fa-solid fa-shield-halved"></i>
                             <select id="rol" name="rol" onchange="actualizarGeneracionCredenciales()" required>
+<<<<<<< HEAD
                                 <option value="estudiante" selected>Estudiante</option>
+=======
+                                <option value="estudiante" selected>Estudiante (Matrícula Escolar)</option>
+>>>>>>> dev/oswaldo-cardoza
                                 <option value="docente">Docente</option>
                                 <option value="admin">Administrador</option>
                             </select>
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <!-- Estudiante: NIE -->
                     <div class="form-group full-width" id="grupoNie">
                         <label for="nie">NIE (Carné Único del Alumno)</label>
@@ -464,10 +551,61 @@ $error = $_GET['error'] ?? '';
                         <div class="input-wrapper">
                             <i class="fa-regular fa-user"></i>
                             <input type="text" id="nombre" name="nombre" placeholder="Ej: Carlos Mauricio" oninput="actualizarGeneracionCredenciales()" required>
+=======
+                    <!-- Estudiante: NIE Autogenerado -->
+                    <div class="form-group full-width" id="grupoNie">
+                        <label for="nie">NIE (Carné Único del Alumno) <span class="label-desc">(Autogenerado con iniciales y correlativo)</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-id-badge"></i>
+                            <input type="text" id="nie" name="nie" placeholder="Ej: ML00001" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Estudiante: Grado y Sección -->
+                    <div class="form-group" id="grupoGradoEstudiante">
+                        <label for="grado">Grado Académico</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <select id="grado" name="grado">
+                                <option value="1° Grado">1° Grado</option>
+                                <option value="2° Grado">2° Grado</option>
+                                <option value="3° Grado">3° Grado</option>
+                                <option value="4° Grado">4° Grado</option>
+                                <option value="5° Grado">5° Grado</option>
+                                <option value="6° Grado">6° Grado</option>
+                                <option value="7° Grado">7° Grado</option>
+                                <option value="8° Grado">8° Grado</option>
+                                <option value="9° Grado">9° Grado</option>
+                                <option value="1° Año Bachillerato" selected>1° Año Bachillerato</option>
+                                <option value="2° Año Bachillerato">2° Año Bachillerato</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="grupoSeccionEstudiante">
+                        <label for="seccion">Sección Asignada</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-users"></i>
+                            <select id="seccion" name="seccion">
+                                <option value="Sección A" selected>Sección A</option>
+                                <option value="Sección B">Sección B</option>
+                                <option value="Sección C">Sección C</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Nombres Separados -->
+                    <div class="form-group">
+                        <label for="primer_nombre">Primer Nombre</label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user"></i>
+                            <input type="text" id="primer_nombre" name="primer_nombre" placeholder="Ej: Carlos" oninput="actualizarGeneracionCredenciales()" required>
+>>>>>>> dev/oswaldo-cardoza
                         </div>
                     </div>
 
                     <div class="form-group">
+<<<<<<< HEAD
                         <label for="apellido">Apellidos</label>
                         <div class="input-wrapper">
                             <i class="fa-regular fa-user"></i>
@@ -499,10 +637,46 @@ $error = $_GET['error'] ?? '';
                         <div class="input-wrapper">
                             <i class="fa-solid fa-phone"></i>
                             <input type="tel" id="telefono" name="telefono" placeholder="7123-4567" maxlength="9" oninput="aplicarMascaraTelefono(this)" required>
+=======
+                        <label for="segundo_nombre">Segundo Nombre <span class="label-desc">(Opcional)</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user"></i>
+                            <input type="text" id="segundo_nombre" name="segundo_nombre" placeholder="Ej: Mauricio" oninput="actualizarGeneracionCredenciales()">
+                        </div>
+                    </div>
+
+                    <!-- Apellidos Separados -->
+                    <div class="form-group">
+                        <label for="primer_apellido">Primer Apellido</label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user"></i>
+                            <input type="text" id="primer_apellido" name="primer_apellido" placeholder="Ej: Martinez" oninput="actualizarGeneracionCredenciales()" required>
+>>>>>>> dev/oswaldo-cardoza
                         </div>
                     </div>
 
                     <div class="form-group">
+<<<<<<< HEAD
+=======
+                        <label for="segundo_apellido">Segundo Apellido <span class="label-desc">(Opcional)</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-user"></i>
+                            <input type="text" id="segundo_apellido" name="segundo_apellido" placeholder="Ej: Lopez" oninput="actualizarGeneracionCredenciales()">
+                        </div>
+                    </div>
+
+                    <!-- Fecha de Nacimiento para Estudiantes -->
+                    <div class="form-group" id="grupoFechaNacimiento">
+                        <label for="fecha_nacimiento">Fecha de Nacimiento</label>
+                        <div class="input-wrapper">
+                            <i class="fa-regular fa-calendar"></i>
+                            <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" onchange="actualizarGeneracionCredenciales()">
+                        </div>
+                    </div>
+
+                    <!-- Género -->
+                    <div class="form-group" id="grupoGenero">
+>>>>>>> dev/oswaldo-cardoza
                         <label for="genero">Género</label>
                         <div class="input-wrapper">
                             <i class="fa-solid fa-venus-mars"></i>
@@ -513,7 +687,63 @@ $error = $_GET['error'] ?? '';
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <!-- ADMINISTRADOR: CARGO -->
+=======
+                    <!-- Teléfono -->
+                    <div class="form-group" id="grupoTelefono">
+                        <label for="telefono">Teléfono de Contacto <span class="label-desc">0000-0000</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-phone"></i>
+                            <input type="tel" id="telefono" name="telefono" placeholder="7123-4567" maxlength="9" oninput="aplicarMascaraTelefono(this)">
+                        </div>
+                    </div>
+
+                    <!-- DATOS EXCLUSIVOS DE MATRÍCULA ESCOLAR (ESTUDIANTES) -->
+                    <div class="form-group" id="grupoEncargado">
+                        <label for="encargado">Nombre del Encargado / Tutor</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <input type="text" id="encargado" name="encargado" placeholder="Ej: Roberto Díaz">
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="grupoDuiEncargado">
+                        <label for="dui_encargado">DUI del Encargado <span class="label-desc">00000000-0</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-id-card"></i>
+                            <input type="text" id="dui_encargado" name="dui_encargado" placeholder="00000000-0" maxlength="10" oninput="aplicarMascaraDUI(this)">
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width" id="grupoDireccion">
+                        <label for="direccion">Dirección Residencial</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-location-dot"></i>
+                            <input type="text" id="direccion" name="direccion" placeholder="Ej: San Salvador, El Salvador">
+                        </div>
+                    </div>
+
+                    <!-- DUI (Docente y Admin) -->
+                    <div class="form-group" id="grupoDui" style="display: none;">
+                        <label for="dui">Número de DUI <span class="label-desc">00000000-0</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-address-card"></i>
+                            <input type="text" id="dui" name="dui" placeholder="00000000-0" maxlength="10" oninput="aplicarMascaraDUI(this)">
+                        </div>
+                    </div>
+
+                    <!-- Escalafón (Docente) -->
+                    <div class="form-group" id="grupoEscalafon" style="display: none;">
+                        <label for="escalafon">Número de Escalafón <span class="label-desc">ESC- + 5 dígitos</span></label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-certificate"></i>
+                            <input type="text" id="escalafon" name="escalafon" value="ESC-" maxlength="9" oninput="aplicarMascaraEscalafon(this)" onkeydown="prevenirBorrarPrefijo(event, this)">
+                        </div>
+                    </div>
+
+                    <!-- Cargo (Admin) -->
+>>>>>>> dev/oswaldo-cardoza
                     <div class="form-group full-width" id="grupoAdminCargo" style="display: none;">
                         <label for="cargo">Cargo Institucional</label>
                         <div class="input-wrapper">
@@ -526,7 +756,11 @@ $error = $_GET['error'] ?? '';
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <!-- DOCENTE: MATERIAS CON SELECTOR IDÉNTICO AL DE ORIENTACIÓN Y CHIPS ACUMULABLES -->
+=======
+                    <!-- Materias (Docente) -->
+>>>>>>> dev/oswaldo-cardoza
                     <div class="form-group full-width" id="grupoDocenteMaterias" style="display: none;">
                         <label for="selectorMateriaCombo">Materias que imparte <span class="label-desc">(Máximo 2 asignaturas)</span></label>
                         <div class="input-wrapper">
@@ -541,6 +775,7 @@ $error = $_GET['error'] ?? '';
                                 <option value="Educación Física">Educación Física</option>
                             </select>
                         </div>
+<<<<<<< HEAD
 
                         <!-- Aquí se muestran las materias elegidas -->
                         <div class="materias-badges-container" id="badgesContainer"></div>
@@ -549,6 +784,13 @@ $error = $_GET['error'] ?? '';
                     </div>
 
                     <!-- DOCENTE: ORIENTACIÓN -->
+=======
+                        <div class="materias-badges-container" id="badgesContainer"></div>
+                        <div id="hiddenInputsMaterias"></div>
+                    </div>
+
+                    <!-- Orientación (Docente) -->
+>>>>>>> dev/oswaldo-cardoza
                     <div class="form-group full-width" id="grupoDocenteOrientacion" style="display: none;">
                         <label for="grado_orientacion">Grado de Orientación Asignado</label>
                         <div class="input-wrapper">
@@ -570,6 +812,7 @@ $error = $_GET['error'] ?? '';
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <div class="form-group full-width">
                         <label for="foto">Fotografía de Perfil <span class="label-desc">Opcional (.jpg, .png máx 2MB)</span></label>
                         <div class="input-wrapper">
@@ -578,6 +821,8 @@ $error = $_GET['error'] ?? '';
                         </div>
                     </div>
 
+=======
+>>>>>>> dev/oswaldo-cardoza
                     <div class="section-tag">
                         <i class="fa-solid fa-key"></i> 2. Credenciales Autogeneradas
                     </div>
@@ -608,7 +853,11 @@ $error = $_GET['error'] ?? '';
                         <i class="fa-solid fa-xmark"></i> Cancelar
                     </a>
                     <button type="submit" class="btn-submit">
+<<<<<<< HEAD
                         <i class="fa-solid fa-user-plus"></i> Registrar Cuenta
+=======
+                        <i class="fa-solid fa-user-plus"></i> Registrar y Matricular
+>>>>>>> dev/oswaldo-cardoza
                     </button>
                 </div>
             </form>
@@ -622,13 +871,19 @@ $error = $_GET['error'] ?? '';
             <div class="modal-icon icon-success">
                 <i class="fa-solid fa-circle-check"></i>
             </div>
+<<<<<<< HEAD
             <h3>¡Cuenta Creada!</h3>
             <p>El perfil institucional ha sido registrado con sus credenciales y asignaciones activas.</p>
+=======
+            <h3>¡Registro y Matrícula Exitosa!</h3>
+            <p>El perfil y expediente escolar han sido guardados con sus credenciales institucionales activas.</p>
+>>>>>>> dev/oswaldo-cardoza
             <a href="index.php?action=registro" class="btn-modal-action">Aceptar</a>
         </div>
     </div>
     <?php endif; ?>
 
+<<<<<<< HEAD
     <!-- Modal Error: Duplicado -->
     <?php if ($error === 'duplicado'): ?>
     <div class="modal-overlay" id="modalDuplicado">
@@ -645,11 +900,16 @@ $error = $_GET['error'] ?? '';
 
     <!-- Modal Error General / Formatos -->
     <?php if ($error === 'formato_invalido' || $error === 'campos_vacios' || $error === 'materias_excedidas' || $error === 'fallo_sql'): ?>
+=======
+    <!-- Modal Error -->
+    <?php if (!empty($error)): ?>
+>>>>>>> dev/oswaldo-cardoza
     <div class="modal-overlay" id="modalError">
         <div class="modal-alert">
             <div class="modal-icon icon-error">
                 <i class="fa-solid fa-circle-xmark"></i>
             </div>
+<<<<<<< HEAD
             <h3>Error de Validación</h3>
             <p>
                 <?php 
@@ -665,22 +925,44 @@ $error = $_GET['error'] ?? '';
                 ?>
             </p>
             <button class="btn-modal-action" style="background: #dc2626;" onclick="cerrarAviso('modalError')">Cerrar</button>
+=======
+            <h3>Aviso</h3>
+            <p>
+                <?php 
+                if ($error === 'duplicado') {
+                    echo 'El identificador o correo autogenerado ya se encuentra asignado a otra cuenta.';
+                } elseif ($error === 'formato_invalido') { echo 'Revisa los formatos ingresados de teléfono, DUI o escalafón.'; } elseif ($error === 'campos_vacios') {
+                    echo 'Por favor completa todos los campos requeridos.';
+                } else {
+                    echo 'Ocurrió un error al procesar la solicitud en la base de datos.';
+                }
+                ?>
+            </p>
+            <button class="btn-modal-action" style="background: #dc2626;" onclick="document.getElementById('modalError').style.display='none'">Cerrar</button>
+>>>>>>> dev/oswaldo-cardoza
         </div>
     </div>
     <?php endif; ?>
 
     <script>
+<<<<<<< HEAD
         // MÁSCARAS
         function aplicarMascaraDUI(input) {
             let v = input.value.replace(/\D/g, '').slice(0, 9);
             if (v.length > 8) {
                 v = v.slice(0, 8) + '-' + v.slice(8);
             }
+=======
+        function aplicarMascaraDUI(input) {
+            let v = input.value.replace(/\D/g, '').slice(0, 9);
+            if (v.length > 8) v = v.slice(0, 8) + '-' + v.slice(8);
+>>>>>>> dev/oswaldo-cardoza
             input.value = v;
         }
 
         function aplicarMascaraTelefono(input) {
             let v = input.value.replace(/\D/g, '').slice(0, 8);
+<<<<<<< HEAD
             if (v.length > 4) {
                 v = v.slice(0, 4) + '-' + v.slice(4);
             }
@@ -693,18 +975,33 @@ $error = $_GET['error'] ?? '';
             if (!val.startsWith('ESC-')) {
                 val = 'ESC-';
             }
+=======
+            if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4);
+            input.value = v;
+        }
+
+        function aplicarMascaraEscalafon(input) {
+            let val = input.value.toUpperCase();
+            if (!val.startsWith('ESC-')) val = 'ESC-';
+>>>>>>> dev/oswaldo-cardoza
             let numeros = val.substring(4).replace(/\D/g, '').slice(0, 5);
             input.value = 'ESC-' + numeros;
         }
 
         function prevenirBorrarPrefijo(e, input) {
+<<<<<<< HEAD
             // Evitar que Backspace o Delete borren el prefijo 'ESC-'
+=======
+>>>>>>> dev/oswaldo-cardoza
             if ((e.key === 'Backspace' || e.key === 'Delete') && input.selectionStart <= 4 && input.selectionEnd <= 4) {
                 e.preventDefault();
             }
         }
 
+<<<<<<< HEAD
         // MANEJO DINÁMICO DE MATERIAS CON COMBOBOX + BADGES (MÁXIMO 2)
+=======
+>>>>>>> dev/oswaldo-cardoza
         let materiasSeleccionadas = [];
 
         function agregarMateriaDesdeSelect(select) {
@@ -718,7 +1015,11 @@ $error = $_GET['error'] ?? '';
             }
 
             if (materiasSeleccionadas.length >= 2) {
+<<<<<<< HEAD
                 alert('Solo puedes seleccionar un máximo de 2 materias que imparte el docente.');
+=======
+                alert('Solo puedes seleccionar un máximo de 2 materias.');
+>>>>>>> dev/oswaldo-cardoza
                 select.value = '';
                 return;
             }
@@ -742,13 +1043,19 @@ $error = $_GET['error'] ?? '';
             hiddenInputs.innerHTML = '';
 
             materiasSeleccionadas.forEach(mat => {
+<<<<<<< HEAD
                 // Crear badge visual
+=======
+>>>>>>> dev/oswaldo-cardoza
                 const badge = document.createElement('div');
                 badge.className = 'materia-badge';
                 badge.innerHTML = `<span><i class="fa-solid fa-book"></i> ${mat}</span> <i class="fa-solid fa-xmark remove-btn" onclick="removerMateria('${mat}')" title="Eliminar"></i>`;
                 container.appendChild(badge);
 
+<<<<<<< HEAD
                 // Crear input hidden para envío en POST
+=======
+>>>>>>> dev/oswaldo-cardoza
                 const hidden = document.createElement('input');
                 hidden.type = 'hidden';
                 hidden.name = 'materias_imparte[]';
@@ -756,12 +1063,16 @@ $error = $_GET['error'] ?? '';
                 hiddenInputs.appendChild(hidden);
             });
 
+<<<<<<< HEAD
             // Si ya hay 2 materias, deshabilita temporalmente el combobox
             if (materiasSeleccionadas.length >= 2) {
                 select.disabled = true;
             } else {
                 select.disabled = false;
             }
+=======
+            select.disabled = (materiasSeleccionadas.length >= 2);
+>>>>>>> dev/oswaldo-cardoza
         }
 
         function limpiarTexto(str) {
@@ -775,6 +1086,15 @@ $error = $_GET['error'] ?? '';
         function actualizarGeneracionCredenciales() {
             const rol = document.getElementById('rol').value.toLowerCase();
             const grupoNie = document.getElementById('grupoNie');
+<<<<<<< HEAD
+=======
+            const grupoGrado = document.getElementById('grupoGradoEstudiante');
+            const grupoSeccion = document.getElementById('grupoSeccionEstudiante');
+            const grupoFechaNac = document.getElementById('grupoFechaNacimiento');
+            const grupoEncargado = document.getElementById('grupoEncargado');
+            const grupoDuiEncargado = document.getElementById('grupoDuiEncargado');
+            const grupoDireccion = document.getElementById('grupoDireccion');
+>>>>>>> dev/oswaldo-cardoza
             const grupoDui = document.getElementById('grupoDui');
             const duiInput = document.getElementById('dui');
             const grupoEscalafon = document.getElementById('grupoEscalafon');
@@ -784,8 +1104,17 @@ $error = $_GET['error'] ?? '';
             const grupoDocenteOrientacion = document.getElementById('grupoDocenteOrientacion');
             
             const nieInput = document.getElementById('nie');
+<<<<<<< HEAD
             const nombreInput = document.getElementById('nombre');
             const apellidoInput = document.getElementById('apellido');
+=======
+            const pNombreInput = document.getElementById('primer_nombre');
+            const sNombreInput = document.getElementById('segundo_nombre');
+            const pApellidoInput = document.getElementById('primer_apellido');
+            const sApellidoInput = document.getElementById('segundo_apellido');
+            const fechaNacInput = document.getElementById('fecha_nacimiento');
+            
+>>>>>>> dev/oswaldo-cardoza
             const usuarioInput = document.getElementById('usuario');
             const passPreview = document.getElementById('password_preview');
             const passHidden = document.getElementById('password');
@@ -793,7 +1122,16 @@ $error = $_GET['error'] ?? '';
 
             if (rol === 'estudiante') {
                 grupoNie.style.display = 'flex';
+<<<<<<< HEAD
                 nieInput.setAttribute('required', 'required');
+=======
+                if (grupoGrado) grupoGrado.style.display = 'flex';
+                if (grupoSeccion) grupoSeccion.style.display = 'flex';
+                if (grupoFechaNac) grupoFechaNac.style.display = 'flex';
+                if (grupoEncargado) grupoEncargado.style.display = 'flex';
+                if (grupoDuiEncargado) grupoDuiEncargado.style.display = 'flex';
+                if (grupoDireccion) grupoDireccion.style.display = 'flex';
+>>>>>>> dev/oswaldo-cardoza
 
                 grupoDui.style.display = 'none';
                 duiInput.removeAttribute('required');
@@ -805,6 +1143,7 @@ $error = $_GET['error'] ?? '';
                 grupoDocenteMaterias.style.display = 'none';
                 grupoDocenteOrientacion.style.display = 'none';
 
+<<<<<<< HEAD
                 const nieLimpio = (nieInput.value || '').trim();
                 const correo = (nieLimpio ? nieLimpio : 'nie') + '@inca.edu.sv';
                 const clave = nieLimpio ? nieLimpio : 'El mismo NIE';
@@ -817,6 +1156,52 @@ $error = $_GET['error'] ?? '';
             } else if (rol === 'docente') {
                 grupoNie.style.display = 'none';
                 nieInput.removeAttribute('required');
+=======
+                const ape1 = limpiarTexto(pApellidoInput.value);
+                const ape2 = limpiarTexto(sApellidoInput.value);
+
+                let iniciales = '';
+                if (ape1 && ape2) {
+                    iniciales = (ape1.charAt(0) + ape2.charAt(0)).toUpperCase();
+                } else if (ape1) {
+                    iniciales = (ape1.slice(0, 2)).toUpperCase();
+                }
+
+                let nieGenerado = '';
+                if (iniciales.length >= 2) {
+                    nieGenerado = iniciales + '00001';
+                }
+
+                nieInput.value = nieGenerado;
+
+                let ddmm = '2026';
+                if (fechaNacInput && fechaNacInput.value) {
+                    const partes = fechaNacInput.value.split('-');
+                    if (partes.length === 3) {
+                        ddmm = partes[2] + partes[1];
+                    }
+                }
+
+                if (nieGenerado) {
+                    usuarioInput.value = nieGenerado + '@inca.edu.sv';
+                    passPreview.value = nieGenerado + '*' + ddmm;
+                    passHidden.value = nieGenerado + '*' + ddmm;
+                } else {
+                    usuarioInput.value = '';
+                    passPreview.value = '';
+                    passHidden.value = '';
+                }
+
+                infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Estudiantes</strong>, el NIE se autogenera con las iniciales de ambos apellidos + correlativo de 5 números (ej: <code>' + (nieGenerado || 'ML00001') + '</code>). El usuario institucional es <code>' + (nieGenerado || 'ML00001') + '@inca.edu.sv</code> y su contraseña inicial temporal es <code>' + (nieGenerado || 'ML00001') + '*' + ddmm + '</code>.';
+            } else if (rol === 'docente') {
+                grupoNie.style.display = 'none';
+                if (grupoGrado) grupoGrado.style.display = 'none';
+                if (grupoSeccion) grupoSeccion.style.display = 'none';
+                if (grupoFechaNac) grupoFechaNac.style.display = 'none';
+                if (grupoEncargado) grupoEncargado.style.display = 'none';
+                if (grupoDuiEncargado) grupoDuiEncargado.style.display = 'none';
+                if (grupoDireccion) grupoDireccion.style.display = 'none';
+>>>>>>> dev/oswaldo-cardoza
 
                 grupoDui.style.display = 'flex';
                 duiInput.setAttribute('required', 'required');
@@ -828,22 +1213,43 @@ $error = $_GET['error'] ?? '';
                 grupoDocenteMaterias.style.display = 'flex';
                 grupoDocenteOrientacion.style.display = 'flex';
 
+<<<<<<< HEAD
                 const primerNombre = limpiarTexto(nombreInput.value.split(' ')[0]);
                 const primerApellido = limpiarTexto(apellidoInput.value.split(' ')[0]);
 
                 let usuarioGenerado = '';
                 if (primerNombre && primerApellido) {
                     usuarioGenerado = primerNombre + '_' + primerApellido + '@inca.edu.sv';
+=======
+                const pNom = limpiarTexto(pNombreInput.value);
+                const pApe = limpiarTexto(pApellidoInput.value);
+
+                let usuarioGenerado = '';
+                if (pNom && pApe) {
+                    usuarioGenerado = pNom + '_' + pApe + '@inca.edu.sv';
+>>>>>>> dev/oswaldo-cardoza
                 }
 
                 usuarioInput.value = usuarioGenerado;
                 passPreview.value = '12345';
                 passHidden.value = '12345';
 
+<<<<<<< HEAD
                 infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Docentes</strong>, se valida obligatoriamente <strong>DUI</strong>, <strong>Teléfono</strong>, <strong>Escalafón (ESC- + 5 dígitos)</strong>, selección acumulable de hasta 2 materias y grado de orientación.';
             } else { // admin
                 grupoNie.style.display = 'none';
                 nieInput.removeAttribute('required');
+=======
+                infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Docentes</strong>, se valida <strong>DUI</strong>, <strong>Escalafón (ESC- + 5 dígitos)</strong>, materias y grado de orientación.';
+            } else {
+                grupoNie.style.display = 'none';
+                if (grupoGrado) grupoGrado.style.display = 'none';
+                if (grupoSeccion) grupoSeccion.style.display = 'none';
+                if (grupoFechaNac) grupoFechaNac.style.display = 'none';
+                if (grupoEncargado) grupoEncargado.style.display = 'none';
+                if (grupoDuiEncargado) grupoDuiEncargado.style.display = 'none';
+                if (grupoDireccion) grupoDireccion.style.display = 'none';
+>>>>>>> dev/oswaldo-cardoza
 
                 grupoDui.style.display = 'flex';
                 duiInput.setAttribute('required', 'required');
@@ -855,18 +1261,28 @@ $error = $_GET['error'] ?? '';
                 grupoDocenteMaterias.style.display = 'none';
                 grupoDocenteOrientacion.style.display = 'none';
 
+<<<<<<< HEAD
                 const primerNombre = limpiarTexto(nombreInput.value.split(' ')[0]);
                 const primerApellido = limpiarTexto(apellidoInput.value.split(' ')[0]);
 
                 let usuarioGenerado = '';
                 if (primerNombre && primerApellido) {
                     usuarioGenerado = primerNombre + '_' + primerApellido + '@inca.edu.sv';
+=======
+                const pNom = limpiarTexto(pNombreInput.value);
+                const pApe = limpiarTexto(pApellidoInput.value);
+
+                let usuarioGenerado = '';
+                if (pNom && pApe) {
+                    usuarioGenerado = pNom + '_' + pApe + '@inca.edu.sv';
+>>>>>>> dev/oswaldo-cardoza
                 }
 
                 usuarioInput.value = usuarioGenerado;
                 passPreview.value = '12345';
                 passHidden.value = '12345';
 
+<<<<<<< HEAD
                 infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Administradores</strong>, se valida obligatoriamente su <strong>DUI</strong>, <strong>Teléfono</strong> y su cargo institucional asignado.';
             }
         }
@@ -927,3 +1343,14 @@ $error = $_GET['error'] ?? '';
     </script>
 </body>
 </html>
+=======
+                infoBox.innerHTML = '<i class="fa-solid fa-circle-info"></i> Para <strong>Administradores</strong>, se valida <strong>DUI</strong>, <strong>Teléfono</strong> y cargo institucional.';
+            }
+        }
+
+        actualizarGeneracionCredenciales();
+    </script>
+</body>
+</html>
+>>>>>>> Stashed changes
+>>>>>>> dev/oswaldo-cardoza
